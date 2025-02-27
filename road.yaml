@@ -1,0 +1,7 @@
+log:
+  level: debug
+  path: ./logs
+  size: 20
+  expire: 5
+  limit: 10
+  stdout: true
