@@ -9,6 +9,8 @@ import (
 	"github.com/nguyenthenguyen/docx"
 	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/transform"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 	"io"
 	"log"
 	"net/http"
@@ -26,14 +28,55 @@ const (
 	maxFileSize = 1024 * 1024 * 500 // 500MB
 )
 
+type ProvinceSetting struct {
+	gorm.Model
+	Year              int     `json:"year" gorm:"uniqueIndex"`
+	Expressway        float64 `json:"expressway"`
+	NationalHighway   float64 `json:"nationalHighway"`
+	ProvincialHighway float64 `json:"provincialHighway"`
+	RuralRoad         float64 `json:"ruralRoad"`
+}
+
+type NationalSetting struct {
+	gorm.Model
+	Plan                 string  `json:"plan" gorm:"uniqueIndex"`
+	MQIExcellent         float64 `json:"mqiExcellent"`
+	POIExcellent         float64 `json:"poiExcellent"`
+	BridgeRate           float64 `json:"bridgeRate"`
+	RecycleRate          float64 `json:"recycleRate"`
+	NationalMQIEast      float64 `json:"nationalMqiEast"`
+	NationalMQICentral   float64 `json:"nationalMqiCentral"`
+	NationalMQIWest      float64 `json:"nationalMqiWest"`
+	NationalPOIEast      float64 `json:"nationalPoiEast"`
+	NationalPOICentral   float64 `json:"nationalPoiCentral"`
+	NationalPOIWest      float64 `json:"nationalPoiWest"`
+	ProvincialMQIEast    float64 `json:"provincialMqiEast"`
+	ProvincialMQICentral float64 `json:"provincialMqiCentral"`
+	ProvincialMQIWest    float64 `json:"provincialMqiWest"`
+	ProvincialPOIEast    float64 `json:"provincialPoiEast"`
+	ProvincialPOICentral float64 `json:"provincialPoiCentral"`
+	ProvincialPOIWest    float64 `json:"provincialPoiWest"`
+	RuralMQI             float64 `json:"ruralMqi"`
+	MaintenanceRate      float64 `json:"maintenanceRate"`
+}
+
+var db *gorm.DB
+
 func main() {
 	conf.InitConf("./road.yaml")
 	logger.InitLogger("road")
 
-	logger.Logger.Infof("started")
+	var err error
+	dsn := "root:5023152@tcp(36.133.97.26:26033)/road?charset=utf8mb4&parseTime=True&loc=Local"
+	db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	if err != nil {
+		panic("failed to connect database")
+	}
+
+	db.AutoMigrate(&ProvinceSetting{}, &NationalSetting{})
 
 	// 创建上传目录
-	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+	if err = os.MkdirAll(uploadDir, 0755); err != nil {
 		logger.Logger.Errorf("创建上传目录失败: %v", err)
 		return
 	}
@@ -145,7 +188,13 @@ func main() {
 		http.ServeFile(c.Writer, c.Request, tmpFile.Name())
 	})
 
-	if err := r.Run(":12345"); err != nil {
+	api := r.Group("/api/settings")
+	{
+		api.POST("/province", saveProvinceSettings)
+		api.POST("/national", saveNationalSettings)
+	}
+
+	if err = r.Run(":12345"); err != nil {
 		logger.Logger.Errorf("启动服务器失败: %v", err)
 		return
 	}
@@ -225,4 +274,26 @@ func decodeGBK(s string) (string, error) {
 		return "", err
 	}
 	return string(buf), nil
+}
+
+func saveProvinceSettings(c *gin.Context) {
+	var setting ProvinceSetting
+	if err := c.ShouldBindJSON(&setting); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	db.Save(&setting)
+	c.JSON(200, gin.H{"message": "省厅指标保存成功"})
+}
+
+func saveNationalSettings(c *gin.Context) {
+	var setting NationalSetting
+	if err := c.ShouldBindJSON(&setting); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	db.Save(&setting)
+	c.JSON(200, gin.H{"message": "交通部指标保存成功"})
 }
