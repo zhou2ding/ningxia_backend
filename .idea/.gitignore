@@ -6,3 +6,7 @@
 # Datasource local storage ignored files
 /dataSources/
 /dataSources.local.xml
+/misc.xml
+/ningxia_backend.iml
+/inspectionProfiles/Project_Default.xml
+/vcs.xml
