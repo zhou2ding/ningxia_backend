@@ -141,7 +141,7 @@ func main() {
 			quotedFiles[i] = strconv.Quote(f) // 处理空格和特殊字符
 		}
 
-		cmd := exec.Command("python3", append([]string{"process.py"}, quotedFiles...)...)
+		cmd := exec.Command("python", append([]string{"process.py"}, quotedFiles...)...)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			logger.Logger.Errorf("Python执行失败 [%d]: %s\n输出: %s", cmd.ProcessState.ExitCode(), err, output)
@@ -164,9 +164,20 @@ func main() {
 		defer doc.Close()
 
 		docxFile := doc.Editable()
+		content := docxFile.GetContent()
 		for key, value := range data {
 			logger.Logger.Errorf("will replace [%v] to %s", key, value)
-			docxFile.Replace(fmt.Sprintf("%v", key), value, -1)
+			content = strings.ReplaceAll(content, key, value)
+		}
+		docxFile.SetContent(content)
+
+		for i := 1; i <= docxFile.ImagesLen(); i++ {
+			err = docxFile.ReplaceImage("word/media/image"+strconv.Itoa(i)+".jpg", "./3.png")
+			if err != nil {
+				logger.Logger.Errorf("替换图片失败: %v", err)
+				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "替换图片失败"})
+				return
+			}
 		}
 
 		tmpFile, err := os.CreateTemp("", "report-*.docx")

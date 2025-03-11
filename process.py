@@ -6,9 +6,9 @@ import time
 def process_files(file_paths):
     # 模拟计算结果（实际应根据文件内容生成）
     return {
-        "pcilevel": "A",
-        "pcipercent": "85",
-        "pcidistance": "100"
+        "PCILEVEL": "A",
+        "PCIPERCENT": "85",
+        "PCIDISTANCE": "100"
     }
 
 if __name__ == "__main__":
@@ -17,5 +17,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     result = process_files(args.files)
-    time.sleep(5)
+    time.sleep(1)
     print(json.dumps(result))
