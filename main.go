@@ -166,13 +166,15 @@ func main() {
 		docxFile := doc.Editable()
 		content := docxFile.GetContent()
 		for key, value := range data {
-			logger.Logger.Errorf("will replace [%v] to %s", key, value)
+			logger.Logger.Infof("will replace %v to %s", key, value)
 			content = strings.ReplaceAll(content, key, value)
 		}
 		docxFile.SetContent(content)
 
 		for i := 1; i <= docxFile.ImagesLen(); i++ {
-			err = docxFile.ReplaceImage("word/media/image"+strconv.Itoa(i)+".jpg", "./3.png")
+			logger.Logger.Infof("will replace %v to %s", "word/media/image"+strconv.Itoa(i)+".jpg", "./"+strconv.Itoa(i)+".jpg")
+
+			err = docxFile.ReplaceImage("word/media/image"+strconv.Itoa(i)+".jpg", "./"+strconv.Itoa(i)+".jpg")
 			if err != nil {
 				logger.Logger.Errorf("替换图片失败: %v", err)
 				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "替换图片失败"})
