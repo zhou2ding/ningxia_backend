@@ -26,6 +26,7 @@ COPY --from=builder /app/backend /app/backend
 COPY --from=builder /app/process.py /app/process.py
 COPY --from=builder /app/template.docx /app/template.docx
 COPY --from=builder /app/road.yaml /app/road.yaml
+COPY --from=builder /app/*.jpg /app/
 
 # 创建上传目录
 RUN mkdir -p ./tmp/uploads && chmod 755 ./tmp/uploads
