@@ -141,7 +141,7 @@ func main() {
 			quotedFiles[i] = strconv.Quote(f) // 处理空格和特殊字符
 		}
 
-		cmd := exec.Command("python", append([]string{"process.py"}, quotedFiles...)...)
+		cmd := exec.Command("python", append([]string{"pys/process.py"}, quotedFiles...)...)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			logger.Logger.Errorf("Python执行失败 [%d]: %s\n输出: %s", cmd.ProcessState.ExitCode(), err, output)
@@ -155,7 +155,7 @@ func main() {
 			return
 		}
 
-		doc, err := docx.ReadDocxFile("template.docx")
+		doc, err := docx.ReadDocxFile("templates/template.docx")
 		if err != nil {
 			logger.Logger.Errorf("读取模板失败: %v", err)
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Template error"})
@@ -172,9 +172,9 @@ func main() {
 		docxFile.SetContent(content)
 
 		for i := 1; i <= docxFile.ImagesLen(); i++ {
-			logger.Logger.Infof("will replace %v to %s", "word/media/image"+strconv.Itoa(i)+".jpg", "./"+strconv.Itoa(i)+".jpg")
+			logger.Logger.Infof("will replace %v to %s", "word/media/image"+strconv.Itoa(i)+".jpg", "./templates/"+strconv.Itoa(i)+".jpg")
 
-			err = docxFile.ReplaceImage("word/media/image"+strconv.Itoa(i)+".jpg", "./"+strconv.Itoa(i)+".jpg")
+			err = docxFile.ReplaceImage("word/media/image"+strconv.Itoa(i)+".jpg", "./templates/"+strconv.Itoa(i)+".jpg")
 			if err != nil {
 				logger.Logger.Errorf("替换图片失败: %v", err)
 				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "替换图片失败"})
