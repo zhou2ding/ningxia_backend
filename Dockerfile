@@ -1,33 +1,34 @@
 # 构建阶段
-FROM --platform=linux/amd64 golang:1.22-alpine AS builder
+FROM --platform=linux/amd64 golang:1.22-bullseye AS builder
 
 WORKDIR /app
 
-# 复制依赖文件
+# 安装 SQLite 开发库
+RUN apt-get update && apt-get install -y sqlite3 libsqlite3-dev
+
 COPY go.mod go.sum ./
 RUN go mod download
 
-# 复制源码
 COPY . .
 
-# 编译Go程序
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o backend .
+# 启用 CGO 并编译
+RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o backend .
 
 # 最终运行环境
 FROM --platform=linux/amd64 python:3.9-slim
 
 WORKDIR /app
 
-# 安装Python依赖
+# 安装运行时依赖
+RUN apt-get update && apt-get install -y libsqlite3-0
+
+# 安装 Python 依赖
 RUN pip install --no-cache-dir python-docx
 
-# 从构建阶段复制文件，会自动创建不存在的目录
+# 复制必要的文件
 COPY --from=builder /app/backend .
 COPY --from=builder /app/road.yaml .
-#COPY --from=builder /app/pys/process.py ./pys
 
-# 暴露端口
 EXPOSE 12345
 
-# 启动命令
 CMD ["./backend"]

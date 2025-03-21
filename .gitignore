@@ -1,3 +1,5 @@
 /tmp/
 /*.tar
 /logs/*
+.idea
+/road.db

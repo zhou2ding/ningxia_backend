@@ -3,13 +3,14 @@ package main
 import (
 	"archive/zip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/nguyenthenguyen/docx"
 	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/transform"
-	"gorm.io/driver/mysql"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"io"
 	"log"
@@ -26,6 +27,7 @@ import (
 const (
 	uploadDir   = "./tmp/uploads"
 	maxFileSize = 1024 * 1024 * 500 // 500MB
+	dbFile      = "./road.db"
 )
 
 type ProvinceSetting struct {
@@ -67,8 +69,7 @@ func main() {
 	logger.InitLogger("road")
 
 	var err error
-	dsn := "root:5023152@tcp(36.133.97.26:26033)/road?charset=utf8mb4&parseTime=True&loc=Local"
-	db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	db, err = gorm.Open(sqlite.Open(dbFile), &gorm.Config{})
 	if err != nil {
 		panic("failed to connect database")
 	}
@@ -83,11 +84,9 @@ func main() {
 
 	r := gin.Default()
 	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{"http://36.133.97.26:16044"}
+	config.AllowOrigins = []string{"*"}
 	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
 	config.AllowHeaders = []string{"Origin", "Content-Type", "Authorization"}
-	config.AllowCredentials = true
-
 	r.Use(cors.New(config))
 
 	// 解压接口
@@ -205,6 +204,8 @@ func main() {
 	{
 		api.POST("/province", saveProvinceSettings)
 		api.POST("/national", saveNationalSettings)
+		api.GET("/province/:year", getProvinceSetting)
+		api.GET("/national/:plan", getNationalSetting)
 	}
 
 	if err = r.Run(":12345"); err != nil {
@@ -309,4 +310,41 @@ func saveNationalSettings(c *gin.Context) {
 
 	db.Save(&setting)
 	c.JSON(200, gin.H{"message": "交通部指标保存成功"})
+}
+
+func getProvinceSetting(c *gin.Context) {
+	yearStr := c.Param("year")
+	year, err := strconv.Atoi(yearStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的年份参数"})
+		return
+	}
+
+	var setting ProvinceSetting
+	if err = db.Where("year = ?", year).First(&setting).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("未找到%d年的省厅配置", year)})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "数据库查询失败"})
+		return
+	}
+
+	c.JSON(http.StatusOK, setting)
+}
+
+func getNationalSetting(c *gin.Context) {
+	plan := c.Param("plan")
+
+	var setting NationalSetting
+	if err := db.Where("plan = ?", plan).First(&setting).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("未找到计划'%s'的交通部配置", plan)})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "数据库查询失败"})
+		return
+	}
+
+	c.JSON(http.StatusOK, setting)
 }
