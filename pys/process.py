@@ -32,7 +32,6 @@ def process_files(file_paths):
         "G109RDIDOWNTWOAVG": 93.09,
         "G110RDUPONEMIN": 0.0,
         "G110RDUPONEMAX": 7.45,
-
     }
 
 if __name__ == "__main__":
@@ -41,5 +40,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     result = process_files(args.files)
-    time.sleep(1)
     print(json.dumps(result))

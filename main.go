@@ -145,7 +145,7 @@ func main() {
 			quotedFiles[i] = strconv.Quote(f) // 处理空格和特殊字符
 		}
 
-		cmd := exec.Command("python", append([]string{"pys/process.py"}, quotedFiles...)...)
+		cmd := exec.Command("pys/dist/process", quotedFiles...)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			logger.Logger.Errorf("Python执行失败 [%d]: %s\n输出: %s", cmd.ProcessState.ExitCode(), err, output)
