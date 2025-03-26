@@ -171,6 +171,7 @@ func main() {
 		content := docxFile.GetContent()
 		for key, value := range data {
 			valStr := fmt.Sprintf("%v", value)
+			logger.Logger.Infof("will replace %s with %s", key, valStr)
 			if valStr == "" {
 				content = strings.ReplaceAll(content, key, " ")
 			} else {
