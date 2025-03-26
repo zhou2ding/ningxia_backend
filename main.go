@@ -71,10 +71,15 @@ func main() {
 	var err error
 	db, err = gorm.Open(sqlite.Open(dbFile), &gorm.Config{})
 	if err != nil {
-		panic("failed to connect database")
+		logger.Logger.Errorf("failed to connect database: %v", err)
+		return
 	}
 
-	db.AutoMigrate(&ProvinceSetting{}, &NationalSetting{})
+	err = db.AutoMigrate(&ProvinceSetting{}, &NationalSetting{})
+	if err != nil {
+		logger.Logger.Errorf("failed to AutoMigrate: %v", err)
+		return
+	}
 
 	// 创建上传目录
 	if err = os.MkdirAll(uploadDir, 0755); err != nil {
@@ -147,14 +152,14 @@ func main() {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("计算失败: %s", output)})
 			return
 		}
-		var data map[string]string
+		var data map[string]any
 		if err = json.Unmarshal(output, &data); err != nil {
 			logger.Logger.Errorf("解析结果失败: %v\n原始输出: %s", err, output)
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse results"})
 			return
 		}
 
-		doc, err := docx.ReadDocxFile("templates/template.docx")
+		doc, err := docx.ReadDocxFile("templates/副本表1.docx")
 		if err != nil {
 			logger.Logger.Errorf("读取模板失败: %v", err)
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Template error"})
@@ -165,13 +170,17 @@ func main() {
 		docxFile := doc.Editable()
 		content := docxFile.GetContent()
 		for key, value := range data {
-			logger.Logger.Infof("will replace %v to %s", key, value)
-			content = strings.ReplaceAll(content, key, value)
+			valStr := fmt.Sprintf("%v", value)
+			if valStr == "" {
+				content = strings.ReplaceAll(content, key, " ")
+			} else {
+				content = strings.ReplaceAll(content, key, valStr)
+			}
 		}
 		docxFile.SetContent(content)
 
 		for i := 1; i <= docxFile.ImagesLen(); i++ {
-			logger.Logger.Infof("will replace %v to %s", "word/media/image"+strconv.Itoa(i)+".jpg", "./templates/"+strconv.Itoa(i)+".jpg")
+			logger.Logger.Infof("will replace %v to %v", "word/media/image"+strconv.Itoa(i)+".jpg", "./templates/"+strconv.Itoa(i)+".jpg")
 
 			err = docxFile.ReplaceImage("word/media/image"+strconv.Itoa(i)+".jpg", "./templates/"+strconv.Itoa(i)+".jpg")
 			if err != nil {
