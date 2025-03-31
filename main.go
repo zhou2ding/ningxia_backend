@@ -113,82 +113,39 @@ func main() {
 
 	pySuffix := conf.Conf.GetString("pySuffix")
 	// 解压接口
-	r.POST("/api/unzip", func(c *gin.Context) {
-		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxFileSize)
-
-		file, err := c.FormFile("file")
-		if err != nil {
-			logger.Logger.Errorf("文件上传失败: %v", err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "文件上传失败"})
-			return
-		}
-
-		tempDir, err := os.MkdirTemp(uploadDir, "unzip-*")
-		if err != nil {
-			logger.Logger.Errorf("创建临时目录失败: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "创建临时目录失败"})
-			return
-		}
-
-		zipPath := filepath.Join(tempDir, file.Filename)
-		if err = c.SaveUploadedFile(file, zipPath); err != nil {
-			logger.Logger.Errorf("文件保存失败: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "文件保存失败"})
-			return
-		}
-
-		files, err := unzip(zipPath, tempDir)
-		if err != nil {
-			logger.Logger.Errorf("文件解压失败: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "文件解压失败"})
-			return
-		}
-		for _, fileName := range files {
-			xlsx, err := excelize.OpenFile(fileName)
-			if err != nil {
-				logger.Logger.Errorf("打开xlsx文件 %s 失败: %v", fileName, err)
-				continue
-			}
-
-			rows, err := xlsx.GetRows(xlsx.GetSheetName(0))
-			if err != nil {
-				logger.Logger.Errorf("获取 %s 的 sheet[%s] 失败: %v", fileName, xlsx.GetSheetName(0), err)
-				continue
-			}
-			roadNameIdx := -1
-			for i := range rows {
-				if rows[i][0] == "路线编码" {
-					if i+1 >= len(rows) || i+2 >= len(rows) {
-						continue
-					}
-					roadNameIdx = i + 1
-					break
-				}
-			}
-
-			if roadNameIdx >= 0 {
-				roadName := rows[roadNameIdx][0]
-				if roadName == "" {
-					roadName = rows[roadNameIdx+1][0]
-				}
-				if err = db.Clauses(clause.OnConflict{DoNothing: true}).Create(&Road{Name: roadName}).Error; err != nil {
-					logger.Logger.Errorf("%s 的路线名称 %s 写入数据库失败: %v", fileName, roadName, err)
-					continue
-				}
-			}
-		}
-		c.JSON(http.StatusOK, gin.H{"files": files})
-	})
+	r.POST("/api/unzip", unzipHandler())
 
 	// 计算接口
-	r.POST("/api/calculate", func(c *gin.Context) {
+	r.POST("/api/calculate", calculateHandler(pySuffix))
+
+	setting := r.Group("/api/settings")
+	{
+		setting.POST("/province", saveProvinceSettings)
+		setting.POST("/national", saveNationalSettings)
+		setting.GET("/province/:year", getProvinceSetting)
+		setting.GET("/national/:plan", getNationalSetting)
+	}
+
+	road := r.Group("/api/road")
+	{
+		road.GET("list", getRoads)
+	}
+
+	if err = r.Run(":12345"); err != nil {
+		logger.Logger.Errorf("启动服务器失败: %v", err)
+		return
+	}
+}
+
+func calculateHandler(pySuffix string) func(c *gin.Context) {
+	return func(c *gin.Context) {
 		var req struct {
 			Files      []string `json:"files"`
 			ReportType string   `json:"reportType"`
 			Mileage    float64  `json:"mileage"`
 			PQI        float64  `json:"pqi"`
 		}
-		if err = c.ShouldBindJSON(&req); err != nil {
+		if err := c.ShouldBindJSON(&req); err != nil {
 			logger.Logger.Errorf("无效请求: %v", err)
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 			return
@@ -280,24 +237,75 @@ func main() {
 		c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 		c.Header("Content-Disposition", "attachment; filename=report.docx")
 		http.ServeFile(c.Writer, c.Request, tmpFile.Name())
-	})
-
-	setting := r.Group("/api/settings")
-	{
-		setting.POST("/province", saveProvinceSettings)
-		setting.POST("/national", saveNationalSettings)
-		setting.GET("/province/:year", getProvinceSetting)
-		setting.GET("/national/:plan", getNationalSetting)
 	}
+}
 
-	road := r.Group("/api/road")
-	{
-		road.GET("list", getRoads)
-	}
+func unzipHandler() func(c *gin.Context) {
+	return func(c *gin.Context) {
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxFileSize)
 
-	if err = r.Run(":12345"); err != nil {
-		logger.Logger.Errorf("启动服务器失败: %v", err)
-		return
+		file, err := c.FormFile("file")
+		if err != nil {
+			logger.Logger.Errorf("文件上传失败: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "文件上传失败"})
+			return
+		}
+
+		tempDir, err := os.MkdirTemp(uploadDir, "unzip-*")
+		if err != nil {
+			logger.Logger.Errorf("创建临时目录失败: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "创建临时目录失败"})
+			return
+		}
+
+		zipPath := filepath.Join(tempDir, file.Filename)
+		if err = c.SaveUploadedFile(file, zipPath); err != nil {
+			logger.Logger.Errorf("文件保存失败: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "文件保存失败"})
+			return
+		}
+
+		files, err := unzip(zipPath, tempDir)
+		if err != nil {
+			logger.Logger.Errorf("文件解压失败: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "文件解压失败"})
+			return
+		}
+		for _, fileName := range files {
+			xlsx, err := excelize.OpenFile(fileName)
+			if err != nil {
+				logger.Logger.Errorf("打开xlsx文件 %s 失败: %v", fileName, err)
+				continue
+			}
+
+			rows, err := xlsx.GetRows(xlsx.GetSheetName(0))
+			if err != nil {
+				logger.Logger.Errorf("获取 %s 的 sheet[%s] 失败: %v", fileName, xlsx.GetSheetName(0), err)
+				continue
+			}
+			roadNameIdx := -1
+			for i := range rows {
+				if rows[i][0] == "路线编码" {
+					if i+1 >= len(rows) || i+2 >= len(rows) {
+						continue
+					}
+					roadNameIdx = i + 1
+					break
+				}
+			}
+
+			if roadNameIdx >= 0 {
+				roadName := rows[roadNameIdx][0]
+				if roadName == "" {
+					roadName = rows[roadNameIdx+1][0]
+				}
+				if err = db.Clauses(clause.OnConflict{DoNothing: true}).Create(&Road{Name: roadName}).Error; err != nil {
+					logger.Logger.Errorf("%s 的路线名称 %s 写入数据库失败: %v", fileName, roadName, err)
+					continue
+				}
+			}
+		}
+		c.JSON(http.StatusOK, gin.H{"files": files})
 	}
 }
 
