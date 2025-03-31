@@ -8,10 +8,12 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/nguyenthenguyen/docx"
+	"github.com/xuri/excelize/v2"
 	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/transform"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"io"
 	"log"
 	"net/http"
@@ -22,6 +24,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 const (
@@ -30,9 +33,23 @@ const (
 	dbFile      = "./road.db"
 )
 
+const (
+	ReportTypeExpressway         = "EXPRESSWAY"
+	ReportTypePostEvaluation     = "POST_EVALUATION"
+	ReportTypeConstruction       = "CONSTRUCTION"
+	ReportTypeRural              = "RURAL"
+	ReportTypeNationalProvincial = "NATIONAL_PROVINCIAL"
+	ReportTypeMarket             = "MARKET"
+)
+
+type Road struct {
+	gorm.Model `json:"-"`
+	Name       string `json:"name" gorm:"unique"`
+}
+
 type ProvinceSetting struct {
 	gorm.Model
-	Year              int     `json:"year" gorm:"uniqueIndex"`
+	Year              int     `json:"year" gorm:"unique"`
 	Expressway        float64 `json:"expressway"`
 	NationalHighway   float64 `json:"nationalHighway"`
 	ProvincialHighway float64 `json:"provincialHighway"`
@@ -41,7 +58,7 @@ type ProvinceSetting struct {
 
 type NationalSetting struct {
 	gorm.Model
-	Plan                 string  `json:"plan" gorm:"uniqueIndex"`
+	Plan                 string  `json:"plan" gorm:"unique"`
 	MQIExcellent         float64 `json:"mqiExcellent"`
 	POIExcellent         float64 `json:"poiExcellent"`
 	BridgeRate           float64 `json:"bridgeRate"`
@@ -75,7 +92,7 @@ func main() {
 		return
 	}
 
-	err = db.AutoMigrate(&ProvinceSetting{}, &NationalSetting{})
+	err = db.AutoMigrate(&ProvinceSetting{}, &NationalSetting{}, &Road{})
 	if err != nil {
 		logger.Logger.Errorf("failed to AutoMigrate: %v", err)
 		return
@@ -94,6 +111,7 @@ func main() {
 	config.AllowHeaders = []string{"Origin", "Content-Type", "Authorization"}
 	r.Use(cors.New(config))
 
+	pySuffix := conf.Conf.GetString("pySuffix")
 	// 解压接口
 	r.POST("/api/unzip", func(c *gin.Context) {
 		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxFileSize)
@@ -125,31 +143,88 @@ func main() {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "文件解压失败"})
 			return
 		}
+		for _, fileName := range files {
+			xlsx, err := excelize.OpenFile(fileName)
+			if err != nil {
+				logger.Logger.Errorf("打开xlsx文件 %s 失败: %v", fileName, err)
+				continue
+			}
 
+			rows, err := xlsx.GetRows(xlsx.GetSheetName(0))
+			if err != nil {
+				logger.Logger.Errorf("获取 %s 的 sheet[%s] 失败: %v", fileName, xlsx.GetSheetName(0), err)
+				continue
+			}
+			roadNameIdx := -1
+			for i := range rows {
+				if rows[i][0] == "路线编码" {
+					if i+1 >= len(rows) || i+2 >= len(rows) {
+						continue
+					}
+					roadNameIdx = i + 1
+					break
+				}
+			}
+
+			if roadNameIdx >= 0 {
+				roadName := rows[roadNameIdx][0]
+				if roadName == "" {
+					roadName = rows[roadNameIdx+1][0]
+				}
+				if err = db.Clauses(clause.OnConflict{DoNothing: true}).Create(&Road{Name: roadName}).Error; err != nil {
+					logger.Logger.Errorf("%s 的路线名称 %s 写入数据库失败: %v", fileName, roadName, err)
+					continue
+				}
+			}
+		}
 		c.JSON(http.StatusOK, gin.H{"files": files})
 	})
 
 	// 计算接口
 	r.POST("/api/calculate", func(c *gin.Context) {
 		var req struct {
-			Files []string `json:"files"`
+			Files      []string `json:"files"`
+			ReportType string   `json:"reportType"`
+			Mileage    float64  `json:"mileage"`
+			PQI        float64  `json:"pqi"`
 		}
-		if err := c.ShouldBindJSON(&req); err != nil {
+		if err = c.ShouldBindJSON(&req); err != nil {
 			logger.Logger.Errorf("无效请求: %v", err)
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 			return
 		}
 
-		quotedFiles := make([]string, len(req.Files))
-		for i, f := range req.Files {
-			quotedFiles[i] = strconv.Quote(f) // 处理空格和特殊字符
+		var program string
+		switch req.ReportType {
+		case ReportTypeExpressway:
+			program = "pys/dist/expressway" + pySuffix
+		case ReportTypePostEvaluation:
+			program = "pys/dist/post_evaluation" + pySuffix
+		case ReportTypeConstruction:
+			program = "pys/dist/construction" + pySuffix
+		case ReportTypeRural:
+			program = "pys/dist/rural" + pySuffix
+		case ReportTypeNationalProvincial:
+			program = "pys/dist/national_provincial" + pySuffix
+		case ReportTypeMarket:
+			program = "pys/dist/market" + pySuffix
+		default:
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "不支持的报告类型"})
+			return
 		}
 
-		cmd := exec.Command("pys/dist/process", quotedFiles...)
+		args := []string{
+			"-files", strings.Join(req.Files, " "),
+			"-pqi", fmt.Sprintf("%.2f", req.PQI),
+			"-d", fmt.Sprintf("%.2f", req.Mileage),
+		}
+
+		cmd := exec.Command(program, args...)
+		logger.Logger.Infof("execute program: %v", cmd)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			logger.Logger.Errorf("Python执行失败 [%d]: %s\n输出: %s", cmd.ProcessState.ExitCode(), err, output)
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("计算失败: %s", output)})
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("计算失败: %s", err)})
 			return
 		}
 		var data map[string]any
@@ -171,7 +246,6 @@ func main() {
 		content := docxFile.GetContent()
 		for key, value := range data {
 			valStr := fmt.Sprintf("%v", value)
-			logger.Logger.Infof("will replace %s with %s", key, valStr)
 			if valStr == "" {
 				content = strings.ReplaceAll(content, key, " ")
 			} else {
@@ -181,8 +255,6 @@ func main() {
 		docxFile.SetContent(content)
 
 		for i := 1; i <= docxFile.ImagesLen(); i++ {
-			logger.Logger.Infof("will replace %v to %v", "word/media/image"+strconv.Itoa(i)+".jpg", "./templates/"+strconv.Itoa(i)+".jpg")
-
 			err = docxFile.ReplaceImage("word/media/image"+strconv.Itoa(i)+".jpg", "./templates/"+strconv.Itoa(i)+".jpg")
 			if err != nil {
 				logger.Logger.Errorf("替换图片失败: %v", err)
@@ -210,12 +282,17 @@ func main() {
 		http.ServeFile(c.Writer, c.Request, tmpFile.Name())
 	})
 
-	api := r.Group("/api/settings")
+	setting := r.Group("/api/settings")
 	{
-		api.POST("/province", saveProvinceSettings)
-		api.POST("/national", saveNationalSettings)
-		api.GET("/province/:year", getProvinceSetting)
-		api.GET("/national/:plan", getNationalSetting)
+		setting.POST("/province", saveProvinceSettings)
+		setting.POST("/national", saveNationalSettings)
+		setting.GET("/province/:year", getProvinceSetting)
+		setting.GET("/national/:plan", getNationalSetting)
+	}
+
+	road := r.Group("/api/road")
+	{
+		road.GET("list", getRoads)
 	}
 
 	if err = r.Run(":12345"); err != nil {
@@ -236,7 +313,7 @@ func unzip(src, dest string) ([]string, error) {
 	for _, f := range r.File {
 		name := f.Name
 		if f.Flags&0x800 == 0 {
-			decodedName, err := decodeGBK(name)
+			decodedName, err := decodeFileName(name)
 			if err != nil {
 				logger.Logger.Errorf("GBK解码失败: %v", err)
 			} else {
@@ -288,6 +365,28 @@ func unzip(src, dest string) ([]string, error) {
 		filenames = append(filenames, fpath)
 	}
 	return filenames, nil
+}
+
+func decodeFileName(name string) (string, error) {
+	// 先尝试UTF-8
+	if utf8.ValidString(name) {
+		return name, nil
+	}
+
+	// 尝试GBK
+	gbkName, err := decodeGBK(name)
+	if err == nil && gbkName != name {
+		return gbkName, nil
+	}
+
+	// 尝试其他常见中文编码如GB18030
+	decoder := simplifiedchinese.GB18030.NewDecoder()
+	gb18030Name, _, err := transform.String(decoder, name)
+	if err == nil && gb18030Name != name {
+		return gb18030Name, nil
+	}
+
+	return name, fmt.Errorf("无法解码文件名")
 }
 
 func decodeGBK(s string) (string, error) {
@@ -357,4 +456,14 @@ func getNationalSetting(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, setting)
+}
+
+func getRoads(c *gin.Context) {
+	var roads []Road
+	if err := db.Find(&roads).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("获取路线名称失败: %v", err)})
+		return
+	}
+
+	c.JSON(http.StatusOK, roads)
 }
