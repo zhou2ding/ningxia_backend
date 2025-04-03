@@ -143,6 +143,7 @@ func main() {
 
 	report := r.Group("/api/reports")
 	{
+		report.GET("list", getReports)
 		report.GET("/view/:filename", viewMarkdownHandler)     //查看md
 		report.GET("/download/:filename", downloadWordHandler) //下载docx
 	}
@@ -616,6 +617,30 @@ func getFileHandler(c *gin.Context) {
 	filename = filepath.Join(reportsBaseDir, p)
 	c.Header("Content-Disposition", "inline")
 	c.File(filename)
+}
+
+func getReports(c *gin.Context) {
+	skipDir := filepath.Join("images")
+
+	reports := make([]string, 0)
+	err := filepath.Walk(reportsBaseDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() && strings.Contains(path, skipDir) {
+			return filepath.SkipDir
+		}
+		if !info.IsDir() && !strings.Contains(path, ".DS_Store") {
+			reports = append(reports, filepath.Base(path))
+		}
+		return nil
+	})
+	if err != nil {
+		logger.Logger.Errorf("遍历目录失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "查看报表列表失败"})
+		return
+	}
+	c.JSON(http.StatusOK, reports)
 }
 
 func viewMarkdownHandler(c *gin.Context) {
