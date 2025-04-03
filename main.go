@@ -628,7 +628,7 @@ func getReports(c *gin.Context) {
 		if info.IsDir() && strings.Contains(path, skipDir) {
 			return filepath.SkipDir
 		}
-		if !info.IsDir() && !strings.Contains(path, ".DS_Store") {
+		if !info.IsDir() && strings.Contains(path, ".doc") {
 			reports = append(reports, filepath.Base(path))
 		}
 		return nil
