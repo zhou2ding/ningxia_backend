@@ -9,12 +9,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/nguyenthenguyen/docx"
 	cp "github.com/otiai10/copy"
-	"github.com/xuri/excelize/v2"
 	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/transform"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 	"io"
 	"log"
 	"net/http"
@@ -406,40 +404,40 @@ func unzipHandler() func(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "文件解压失败"})
 			return
 		}
-		for _, fileName := range files {
-			xlsx, err := excelize.OpenFile(fileName)
-			if err != nil {
-				logger.Logger.Errorf("打开xlsx文件 %s 失败: %v", fileName, err)
-				continue
-			}
-
-			rows, err := xlsx.GetRows(xlsx.GetSheetName(0))
-			if err != nil {
-				logger.Logger.Errorf("获取 %s 的 sheet[%s] 失败: %v", fileName, xlsx.GetSheetName(0), err)
-				continue
-			}
-			roadNameIdx := -1
-			for i := range rows {
-				if rows[i][0] == "路线编码" {
-					if i+1 >= len(rows) || i+2 >= len(rows) {
-						continue
-					}
-					roadNameIdx = i + 1
-					break
-				}
-			}
-
-			if roadNameIdx >= 0 {
-				roadName := rows[roadNameIdx][0]
-				if roadName == "" {
-					roadName = rows[roadNameIdx+1][0]
-				}
-				if err = db.Clauses(clause.OnConflict{DoNothing: true}).Create(&Road{Name: roadName}).Error; err != nil {
-					logger.Logger.Errorf("%s 的路线名称 %s 写入数据库失败: %v", fileName, roadName, err)
-					continue
-				}
-			}
-		}
+		//for _, fileName := range files {
+		//	xlsx, err := excelize.OpenFile(fileName)
+		//	if err != nil {
+		//		logger.Logger.Errorf("打开xlsx文件 %s 失败: %v", fileName, err)
+		//		continue
+		//	}
+		//
+		//	rows, err := xlsx.GetRows(xlsx.GetSheetName(0))
+		//	if err != nil {
+		//		logger.Logger.Errorf("获取 %s 的 sheet[%s] 失败: %v", fileName, xlsx.GetSheetName(0), err)
+		//		continue
+		//	}
+		//	roadNameIdx := -1
+		//	for i := range rows {
+		//		if rows[i][0] == "路线编码" {
+		//			if i+1 >= len(rows) || i+2 >= len(rows) {
+		//				continue
+		//			}
+		//			roadNameIdx = i + 1
+		//			break
+		//		}
+		//	}
+		//
+		//	if roadNameIdx >= 0 {
+		//		roadName := rows[roadNameIdx][0]
+		//		if roadName == "" {
+		//			roadName = rows[roadNameIdx+1][0]
+		//		}
+		//		if err = db.Clauses(clause.OnConflict{DoNothing: true}).Create(&Road{Name: roadName}).Error; err != nil {
+		//			logger.Logger.Errorf("%s 的路线名称 %s 写入数据库失败: %v", fileName, roadName, err)
+		//			continue
+		//		}
+		//	}
+		//}
 		c.JSON(http.StatusOK, gin.H{"files": files})
 	}
 }
