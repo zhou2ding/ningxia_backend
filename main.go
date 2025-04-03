@@ -8,6 +8,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/nguyenthenguyen/docx"
+	cp "github.com/otiai10/copy"
 	"github.com/xuri/excelize/v2"
 	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/transform"
@@ -17,6 +18,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"ningxia_backend/pkg/conf"
 	"ningxia_backend/pkg/logger"
 	"os"
@@ -28,9 +30,11 @@ import (
 )
 
 const (
-	uploadDir   = "./tmp/uploads"
-	maxFileSize = 1024 * 1024 * 500 // 500MB
-	dbFile      = "./road.db"
+	uploadDir      = "./tmp/uploads"
+	reportsBaseDir = "./reports" // Base directory for saved reports
+	imagesDir      = "./reports/images"
+	maxFileSize    = 1024 * 1024 * 500 // 500MB
+	dbFile         = "./road.db"
 )
 
 const (
@@ -40,6 +44,19 @@ const (
 	ReportTypeRural              = "RURAL"
 	ReportTypeNationalProvincial = "NATIONAL_PROVINCIAL"
 	ReportTypeMarket             = "MARKET"
+
+	PyRespImagesKey = "Images"
+)
+
+var (
+	ReportNameMap = map[string]string{
+		ReportTypeExpressway:         "高速公路抽检路段公路技术状况监管分析报告",
+		ReportTypePostEvaluation:     "工程后评价技术状况监管分析报告",
+		ReportTypeConstruction:       "建设工程路段技术状况监管分析报告",
+		ReportTypeRural:              "农村路抽检路段公路技术状况监管分析报告",
+		ReportTypeNationalProvincial: "普通国省干线抽检路段公路技术状况监管分析报告",
+		ReportTypeMarket:             "市场化路段抽检路段公路技术状况监管分析报告",
+	}
 )
 
 type Road struct {
@@ -48,7 +65,7 @@ type Road struct {
 }
 
 type ProvinceSetting struct {
-	gorm.Model
+	gorm.Model        `json:"-"`
 	Year              int     `json:"year" gorm:"unique"`
 	Expressway        float64 `json:"expressway"`
 	NationalHighway   float64 `json:"nationalHighway"`
@@ -57,7 +74,7 @@ type ProvinceSetting struct {
 }
 
 type NationalSetting struct {
-	gorm.Model
+	gorm.Model           `json:"-"`
 	Plan                 string  `json:"plan" gorm:"unique"`
 	MQIExcellent         float64 `json:"mqiExcellent"`
 	POIExcellent         float64 `json:"poiExcellent"`
@@ -103,6 +120,11 @@ func main() {
 		logger.Logger.Errorf("创建上传目录失败: %v", err)
 		return
 	}
+	// 创建报告和图片目录
+	if err = os.MkdirAll(imagesDir, 0755); err != nil {
+		logger.Logger.Errorf("创建报告目录失败: %v", err)
+		return
+	}
 
 	r := gin.Default()
 	config := cors.DefaultConfig()
@@ -116,7 +138,16 @@ func main() {
 	r.POST("/api/unzip", unzipHandler())
 
 	// 计算接口
-	r.POST("/api/calculate", calculateHandler(pySuffix))
+	r.POST("/api/calculate/docx", saveDocxHandler(pySuffix))
+	r.POST("/api/calculate/md", saveMdHandler(pySuffix))
+
+	report := r.Group("/api/reports")
+	{
+		report.GET("/view/:filename", viewMarkdownHandler)     //查看md
+		report.GET("/download/:filename", downloadWordHandler) //下载docx
+	}
+
+	r.GET("/file", getFileHandler)
 
 	setting := r.Group("/api/settings")
 	{
@@ -137,64 +168,31 @@ func main() {
 	}
 }
 
-func calculateHandler(pySuffix string) func(c *gin.Context) {
+func saveDocxHandler(pySuffix string) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		var req struct {
 			Files      []string `json:"files"`
 			ReportType string   `json:"reportType"`
 			Mileage    float64  `json:"mileage"`
 			PQI        float64  `json:"pqi"`
+			Timestamp  int64    `json:"timestamp"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
 			logger.Logger.Errorf("无效请求: %v", err)
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "请求有误"})
 			return
 		}
 
-		var program string
-		switch req.ReportType {
-		case ReportTypeExpressway:
-			program = "pys/dist/expressway" + pySuffix
-		case ReportTypePostEvaluation:
-			program = "pys/dist/post_evaluation" + pySuffix
-		case ReportTypeConstruction:
-			program = "pys/dist/construction" + pySuffix
-		case ReportTypeRural:
-			program = "pys/dist/rural" + pySuffix
-		case ReportTypeNationalProvincial:
-			program = "pys/dist/national_provincial" + pySuffix
-		case ReportTypeMarket:
-			program = "pys/dist/market" + pySuffix
-		default:
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "不支持的报告类型"})
-			return
-		}
-
-		args := []string{
-			"-files", strings.Join(req.Files, " "),
-			"-pqi", fmt.Sprintf("%.2f", req.PQI),
-			"-d", fmt.Sprintf("%.2f", req.Mileage),
-		}
-
-		cmd := exec.Command(program, args...)
-		logger.Logger.Infof("execute program: %v", cmd)
-		output, err := cmd.CombinedOutput()
+		data, err := calculate(pySuffix, req.ReportType, req.Files, req.PQI, req.Mileage)
 		if err != nil {
-			logger.Logger.Errorf("Python执行失败 [%d]: %s\n输出: %s", cmd.ProcessState.ExitCode(), err, output)
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("计算失败: %s", err)})
-			return
-		}
-		var data map[string]any
-		if err = json.Unmarshal(output, &data); err != nil {
-			logger.Logger.Errorf("解析结果失败: %v\n原始输出: %s", err, output)
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse results"})
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "计算失败"})
 			return
 		}
 
 		doc, err := docx.ReadDocxFile("templates/副本表1.docx")
 		if err != nil {
 			logger.Logger.Errorf("读取模板失败: %v", err)
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Template error"})
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "读取模板失败"})
 			return
 		}
 		defer doc.Close()
@@ -202,42 +200,178 @@ func calculateHandler(pySuffix string) func(c *gin.Context) {
 		docxFile := doc.Editable()
 		content := docxFile.GetContent()
 		for key, value := range data {
-			valStr := fmt.Sprintf("%v", value)
-			if valStr == "" {
-				content = strings.ReplaceAll(content, key, " ")
-			} else {
-				content = strings.ReplaceAll(content, key, valStr)
+			if key != PyRespImagesKey {
+				valStr := fmt.Sprintf("%v", value)
+				if valStr == "" {
+					content = strings.ReplaceAll(content, key, " ")
+				} else {
+					content = strings.ReplaceAll(content, key, valStr)
+				}
 			}
 		}
 		docxFile.SetContent(content)
 
-		for i := 1; i <= docxFile.ImagesLen(); i++ {
-			err = docxFile.ReplaceImage("word/media/image"+strconv.Itoa(i)+".jpg", "./templates/"+strconv.Itoa(i)+".jpg")
-			if err != nil {
-				logger.Logger.Errorf("替换图片失败: %v", err)
-				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "替换图片失败"})
-				return
+		// 创建报告目录
+		reportBaseName := fmt.Sprintf("%s_%d", ReportNameMap[req.ReportType], req.Timestamp)
+		reportPath := filepath.Join(reportsBaseDir, reportBaseName)
+		if err = os.MkdirAll(reportPath, 0755); err != nil {
+			logger.Logger.Errorf("创建报告目录 (%s): %v", reportPath, err)
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "创建报告目录失败"})
+			return
+		}
+
+		images, ok := data[PyRespImagesKey].([]any)
+		imageNames := make([]string, len(images))
+		if ok {
+			for i, image := range images {
+				imageNames[i] = fmt.Sprintf("%v", image)
+				// 复制报告图片
+				err = cp.Copy(filepath.Join(imagesDir, imageNames[i]), filepath.Join(reportPath, "images", imageNames[i]))
+				if err != nil {
+					logger.Logger.Errorf("拷贝图片 %s 失败: %v", imageNames[i], err)
+				}
+			}
+		}
+		for i := 0; i < docxFile.ImagesLen(); i++ {
+			if i < len(imageNames) {
+				imageName := filepath.Join(reportPath, "images", imageNames[i])
+				err = docxFile.ReplaceImage("word/media/image"+strconv.Itoa(i+1)+".jpeg", imageName)
+				if err != nil {
+					logger.Logger.Errorf("替换图片失败: %v", err)
+					c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "替换图片失败"})
+					return
+				}
 			}
 		}
 
-		tmpFile, err := os.CreateTemp("", "report-*.docx")
-		if err != nil {
-			logger.Logger.Errorf("创建临时文件失败: %v", err)
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "无法创建临时文件"})
-			return
-		}
-		defer os.Remove(tmpFile.Name())
-
-		if err = docxFile.WriteToFile(tmpFile.Name()); err != nil {
-			logger.Logger.Errorf("文档生成失败: %v", err)
+		reportFilename := fmt.Sprintf("%s.docx", reportBaseName)
+		reportFileFullName := filepath.Join(reportsBaseDir, reportBaseName, reportFilename)
+		if err = docxFile.WriteToFile(reportFileFullName); err != nil {
+			logger.Logger.Errorf("DOCX文档写入失败 (%s): %v", reportPath, err)
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "文档生成失败"})
 			return
 		}
 
-		c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-		c.Header("Content-Disposition", "attachment; filename=report.docx")
-		http.ServeFile(c.Writer, c.Request, tmpFile.Name())
+		logger.Logger.Infof("DOCX报告已生成: %s", reportPath)
+		c.JSON(http.StatusOK, gin.H{
+			"message":  "docx报告生成成功",
+			"filename": reportFilename,
+		})
 	}
+}
+
+func saveMdHandler(pySuffix string) func(c *gin.Context) {
+	return func(c *gin.Context) {
+		var req struct {
+			Files      []string `json:"files"`
+			ReportType string   `json:"reportType"`
+			Mileage    float64  `json:"mileage"`
+			PQI        float64  `json:"pqi"`
+			Timestamp  int64    `json:"timestamp"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			logger.Logger.Errorf("无效请求: %v", err)
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "请求有误"})
+			return
+		}
+
+		data, err := calculate(pySuffix, req.ReportType, req.Files, req.PQI, req.Mileage)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "计算失败"})
+			return
+		}
+
+		mdTemplatePath := "templates/副本表1.md"
+		mdBytes, err := os.ReadFile(mdTemplatePath)
+		if err != nil {
+			logger.Logger.Errorf("读取MD模板失败 (%s): %v", mdTemplatePath, err)
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "读取MD模板失败"})
+			return
+		}
+		content := string(mdBytes)
+
+		for key, value := range data {
+			if key != PyRespImagesKey {
+				valStr := fmt.Sprintf("%v", value)
+				if valStr == "" {
+					content = strings.ReplaceAll(content, key, " ")
+				} else {
+					content = strings.ReplaceAll(content, key, valStr)
+				}
+			}
+		}
+
+		reportBaseName := fmt.Sprintf("%s_%d", ReportNameMap[req.ReportType], req.Timestamp)
+		images, ok := data[PyRespImagesKey].([]any)
+		if ok {
+			for _, image := range images {
+				oldImageName := fmt.Sprintf("%s", image)
+				newImageName := fmt.Sprintf("%s/images/%v", reportBaseName, image)
+				imageUrl := fmt.Sprintf("http://127.0.0.1:12345/file?name=%s", url.QueryEscape(newImageName))
+				content = strings.ReplaceAll(content, oldImageName, imageUrl)
+			}
+		}
+
+		reportFilename := fmt.Sprintf("%s.md", reportBaseName)
+		reportFileFullName := filepath.Join(reportsBaseDir, reportBaseName, reportFilename)
+		if err = os.MkdirAll(filepath.Dir(reportFileFullName), 0755); err != nil {
+			logger.Logger.Errorf("创建报告目录 (%s): %v", reportFileFullName, err)
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "创建报告目录失败"})
+			return
+		}
+
+		if err = os.WriteFile(reportFileFullName, []byte(content), 0644); err != nil {
+			logger.Logger.Errorf("Markdown文档写入失败 (%s): %v", reportFileFullName, err)
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Markdown文档生成失败"})
+			return
+		}
+
+		logger.Logger.Infof("Markdown报告已生成: %s", reportFileFullName)
+		c.JSON(http.StatusOK, gin.H{
+			"message":  "Markdown报告生成成功",
+			"filename": reportFilename,
+		})
+	}
+}
+
+func calculate(pySuffix, reportType string, files []string, pqi, mileage float64) (map[string]any, error) {
+	var program string
+	switch reportType {
+	case ReportTypeExpressway:
+		program = "pys/dist/expressway" + pySuffix
+	case ReportTypePostEvaluation:
+		program = "pys/dist/post_evaluation" + pySuffix
+	case ReportTypeConstruction:
+		program = "pys/dist/construction" + pySuffix
+	case ReportTypeRural:
+		program = "pys/dist/rural" + pySuffix
+	case ReportTypeNationalProvincial:
+		program = "pys/dist/national_provincial" + pySuffix
+	case ReportTypeMarket:
+		program = "pys/dist/market" + pySuffix
+	default:
+		return nil, errors.New("不支持的报告类型")
+	}
+
+	args := []string{
+		"-files", strings.Join(files, " "),
+		"-pqi", fmt.Sprintf("%.2f", pqi),
+		"-d", fmt.Sprintf("%.2f", mileage),
+	}
+
+	cmd := exec.Command(program, args...)
+	logger.Logger.Infof("execute program: %v", cmd)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		logger.Logger.Errorf("Python执行失败 [%d]: %s\n输出: %s", cmd.ProcessState.ExitCode(), err, output)
+		return nil, err
+	}
+	var data map[string]any
+	if err = json.Unmarshal(output, &data); err != nil {
+		logger.Logger.Errorf("解析结果失败: %v\n原始输出: %s", err, output)
+		return nil, err
+	}
+	return data, nil
 }
 
 func unzipHandler() func(c *gin.Context) {
@@ -474,4 +608,41 @@ func getRoads(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, roads)
+}
+
+func getFileHandler(c *gin.Context) {
+	filename := c.Query("name")
+	p, _ := url.QueryUnescape(filename)
+	filename = filepath.Join(reportsBaseDir, p)
+	c.Header("Content-Disposition", "inline")
+	c.File(filename)
+}
+
+func viewMarkdownHandler(c *gin.Context) {
+	filename := c.Param("filename")
+	fileFullName := filepath.Join(reportsBaseDir, filename[:strings.LastIndex(filename, ".")], filename)
+	content, err := os.ReadFile(fileFullName)
+	if err != nil {
+		logger.Logger.Errorf("读取报告 %s 内容失败: %v", fileFullName, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "读取报告内容失败"})
+		return
+	}
+	c.Data(http.StatusOK, "text/markdown; charset=utf-8", content)
+}
+
+func downloadWordHandler(c *gin.Context) {
+	filename := c.Param("filename")
+	fmt.Printf("DEBUG: Received filename parameter: [%s]\n", filename)
+	fmt.Printf("DEBUG: Received filename parameter (bytes): %x\n", []byte(filename))
+
+	fileFullName := filepath.Join(reportsBaseDir, filename[:strings.LastIndex(filename, ".")], filename)
+	encodedFilename := url.QueryEscape(filename)
+
+	disposition := fmt.Sprintf("attachment; filename=\"%s\"; filename*=UTF-8''%s", filename, encodedFilename)
+	fmt.Printf("DEBUG: Setting Content-Disposition: [%s]\n", disposition)
+
+	c.Header("Content-Disposition", disposition)
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+
+	c.File(fileFullName)
 }

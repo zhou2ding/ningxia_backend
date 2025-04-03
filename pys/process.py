@@ -1,7 +1,6 @@
-import sys
-import json
 import argparse
-import time
+import json
+
 
 def process_files(file_paths):
     # 模拟计算结果（实际应根据文件内容生成）
@@ -32,12 +31,15 @@ def process_files(file_paths):
         "G109RDIDOWNTWOAVG": 93.09,
         "G110RDUPONEMIN": 0.0,
         "G110RDUPONEMAX": 7.45,
-        "TOTALDISTANCE": 66.6
+        "TOTALDISTANCE": 66.6,
+        "G109DAMAGESTATE": "欧啦啦啦～～～～～！！！欧啦啦啦～～～～～！！！欧啦啦啦～～～～～！！！欧啦啦啦～～～～～！！！欧啦啦啦～～～～～！！！",
+        "Images": ["a.jpeg", "b.jpeg", "c.jpeg"],
     }
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-files', nargs='+',required=True, help='输入的Excel文件列表')
+    parser.add_argument('-files', nargs='+', required=True, help='输入的Excel文件列表')
     parser.add_argument('-pqi', type=float, required=True, help='PQI指标值')
     parser.add_argument('-d', type=float, required=True, help='总里程')
     args = parser.parse_args()

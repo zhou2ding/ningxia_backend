@@ -3,3 +3,7 @@
 /logs/*
 .idea
 /road.db
+/pys/build
+/pys/dist
+/pys/*spec
+/reports
