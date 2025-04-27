@@ -5,4 +5,4 @@ log:
   expire: 5
   limit: 10
   stdout: true
-#pySuffix: ".exe"
+pySuffix: ".exe"

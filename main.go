@@ -20,19 +20,25 @@ import (
 	"ningxia_backend/pkg/conf"
 	"ningxia_backend/pkg/logger"
 	"os"
-	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 )
 
 const (
-	uploadDir      = "./tmp/uploads"
-	reportsBaseDir = "./reports" // Base directory for saved reports
-	imagesDir      = "./reports/images"
-	maxFileSize    = 1024 * 1024 * 500 // 500MB
-	dbFile         = "./road.db"
+	uploadDir                     = "./tmp/uploads"
+	reportsBaseDir                = "./reports" // Base directory for saved reports
+	expresswayReportBaseDir       = "./reports/expressway"
+	postEvaluationReportBaseDir   = "./reports/postEvaluation"
+	constructionReportBaseDir     = "./reports/construction"
+	ruralReportBaseDir            = "./reports/rural"
+	nationalProvinceReportBaseDir = "./reports/nationalProvince"
+	marketReportBaseDir           = "./reports/market"
+	maxFileSize                   = 1024 * 1024 * 1024 // 1024MB
+	dbFile                        = "./road.db"
 )
 
 const (
@@ -43,7 +49,8 @@ const (
 	ReportTypeNationalProvincial = "NATIONAL_PROVINCIAL"
 	ReportTypeMarket             = "MARKET"
 
-	PyRespImagesKey = "Images"
+	PyRespImagesKey      = "IMAGES"
+	PyRespExtraImagesKey = "EXTRA_IMAGES"
 )
 
 var (
@@ -54,6 +61,14 @@ var (
 		ReportTypeRural:              "农村路抽检路段公路技术状况监管分析报告",
 		ReportTypeNationalProvincial: "普通国省干线抽检路段公路技术状况监管分析报告",
 		ReportTypeMarket:             "市场化路段抽检路段公路技术状况监管分析报告",
+	}
+	ReportDirs = []string{
+		expresswayReportBaseDir,
+		postEvaluationReportBaseDir,
+		constructionReportBaseDir,
+		ruralReportBaseDir,
+		nationalProvinceReportBaseDir,
+		marketReportBaseDir,
 	}
 )
 
@@ -119,9 +134,11 @@ func main() {
 		return
 	}
 	// 创建报告和图片目录
-	if err = os.MkdirAll(imagesDir, 0755); err != nil {
-		logger.Logger.Errorf("创建报告目录失败: %v", err)
-		return
+	for _, dir := range ReportDirs {
+		if err = os.MkdirAll(dir+"/images", 0755); err != nil {
+			logger.Logger.Errorf("创建 %s 目录失败: %v", dir, err)
+			return
+		}
 	}
 
 	r := gin.Default()
@@ -142,8 +159,10 @@ func main() {
 	report := r.Group("/api/reports")
 	{
 		report.GET("list", getReports)
-		report.GET("/view/:filename", viewMarkdownHandler)     //查看md
-		report.GET("/download/:filename", downloadWordHandler) //下载docx
+		report.GET("/view/:filename", viewMarkdownHandler)       //查看md
+		report.GET("/download/:filename", downloadWordHandler)   //下载docx
+		report.DELETE("/:filename", deleteReportHandler)         // 删除报告
+		report.GET("/extraExport/:filename", extraExportHandler) // 特殊导出：年度指标达标情况
 	}
 
 	r.GET("/file", getFileHandler)
@@ -188,10 +207,29 @@ func saveDocxHandler(pySuffix string) func(c *gin.Context) {
 			return
 		}
 
-		doc, err := docx.ReadDocxFile("templates/副本表1.docx")
+		var templateFile string
+		switch req.ReportType {
+		case ReportTypeExpressway:
+			templateFile = "templates/高速公路JSON模板.docx"
+		case ReportTypePostEvaluation:
+			templateFile = "templates/养护工程JSON模板.docx"
+		case ReportTypeConstruction:
+			templateFile = "templates/建设工程JSON模板.docx"
+		case ReportTypeRural:
+			templateFile = "templates/农村公路JSON模板.docx"
+		case ReportTypeNationalProvincial:
+			templateFile = "templates/国省干线JSON模板.docx"
+		case ReportTypeMarket:
+			templateFile = "templates/市场化JSON模板.docx"
+		default:
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "报告类型有误"})
+			return
+		}
+
+		doc, err := docx.ReadDocxFile(templateFile)
 		if err != nil {
 			logger.Logger.Errorf("读取模板失败: %v", err)
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "读取模板失败"})
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("读取 %s 模板失败", templateFile)})
 			return
 		}
 		defer doc.Close()
@@ -210,9 +248,12 @@ func saveDocxHandler(pySuffix string) func(c *gin.Context) {
 		}
 		docxFile.SetContent(content)
 
-		// 创建报告目录
+		// --- 5. 准备报告目录和基础名称 ---
+		// 报告基础名 (不含扩展名), 例如: 高速公路...报告_1745680397
 		reportBaseName := fmt.Sprintf("%s_%d", ReportNameMap[req.ReportType], req.Timestamp)
+		// 报告目录路径, 例如: ./reports/高速公路...报告_1745680397
 		reportPath := filepath.Join(reportsBaseDir, reportBaseName)
+		// 报告图片子目录路径
 		if err = os.MkdirAll(reportPath, 0755); err != nil {
 			logger.Logger.Errorf("创建报告目录 (%s): %v", reportPath, err)
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "创建报告目录失败"})
@@ -225,7 +266,22 @@ func saveDocxHandler(pySuffix string) func(c *gin.Context) {
 			for i, image := range images {
 				imageNames[i] = fmt.Sprintf("%v", image)
 				// 复制报告图片
-				err = cp.Copy(filepath.Join(imagesDir, imageNames[i]), filepath.Join(reportPath, "images", imageNames[i]))
+				var srcDir string
+				switch req.ReportType {
+				case ReportTypeExpressway:
+					srcDir = expresswayReportBaseDir + "/images"
+				case ReportTypePostEvaluation:
+					srcDir = postEvaluationReportBaseDir + "/images"
+				case ReportTypeConstruction:
+					srcDir = constructionReportBaseDir + "/images"
+				case ReportTypeRural:
+					srcDir = ruralReportBaseDir + "/images"
+				case ReportTypeNationalProvincial:
+					srcDir = nationalProvinceReportBaseDir + "/images"
+				case ReportTypeMarket:
+					srcDir = marketReportBaseDir + "/images"
+				}
+				err = cp.Copy(filepath.Join(srcDir, imageNames[i]), filepath.Join(reportPath, "images", imageNames[i]))
 				if err != nil {
 					logger.Logger.Errorf("拷贝图片 %s 失败: %v", imageNames[i], err)
 				}
@@ -237,8 +293,8 @@ func saveDocxHandler(pySuffix string) func(c *gin.Context) {
 				err = docxFile.ReplaceImage("word/media/image"+strconv.Itoa(i+1)+".jpeg", imageName)
 				if err != nil {
 					logger.Logger.Errorf("替换图片失败: %v", err)
-					c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "替换图片失败"})
-					return
+					//c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "替换图片失败"})
+					//return
 				}
 			}
 		}
@@ -251,7 +307,115 @@ func saveDocxHandler(pySuffix string) func(c *gin.Context) {
 			return
 		}
 
-		logger.Logger.Infof("DOCX报告已生成: %s", reportPath)
+		logger.Logger.Infof("标准DOCX报告已生成: %s", reportFileFullName)
+
+		// --- 9. 条件性处理 EXTRA 模板 ---
+		// 定义哪些类型需要处理 extra 模板
+		processExtra := map[string]bool{
+			ReportTypeExpressway:         true,
+			ReportTypeRural:              true,
+			ReportTypeNationalProvincial: true,
+		}
+		if processExtra[req.ReportType] {
+			// 构建 extra 模板文件路径
+			ext := filepath.Ext(templateFile)                 // .docx
+			base := templateFile[:len(templateFile)-len(ext)] // templates/高速公路JSON模板
+			extraTemplateFile := base + "_extra" + ext        // templates/高速公路JSON模板_extra.docx
+
+			logger.Logger.Infof("检测到报告类型 %s，尝试处理额外模板: %s", req.ReportType, extraTemplateFile)
+
+			// 读取 extra 模板
+			extraDoc, err := docx.ReadDocxFile(extraTemplateFile)
+			if err != nil {
+				// 读取 extra 模板失败，记录错误，但不中止请求，因为主文件已生成
+				logger.Logger.Errorf("读取额外模板 %s 失败: %v。将跳过额外文件的生成。", extraTemplateFile, err)
+			} else {
+				defer extraDoc.Close() // 确保 extra 模板文件读取器被关闭
+				extraDocxFile := extraDoc.Editable()
+				extraContent := extraDocxFile.GetContent()
+
+				// 替换 extra 模板中的文本 (使用相同的数据)
+				for key, value := range data {
+					if key != PyRespImagesKey {
+						valStr := fmt.Sprintf("%v", value)
+						placeholder := key
+						if valStr == "" {
+							extraContent = strings.ReplaceAll(extraContent, placeholder, " ")
+						} else {
+							extraContent = strings.ReplaceAll(extraContent, placeholder, valStr)
+						}
+					}
+				}
+				extraDocxFile.SetContent(extraContent)
+
+				extraImages, extraOk := data[PyRespExtraImagesKey].([]any)
+				extraImageNames := make([]string, len(images))
+				if extraOk {
+					for i, image := range extraImages {
+						extraImageNames[i] = fmt.Sprintf("%v", image)
+					}
+				}
+
+				for i := 0; i < extraDocxFile.ImagesLen(); i++ {
+					if i < len(extraImageNames) {
+						imageName := filepath.Join(reportPath, "images", extraImageNames[i])
+						err = extraDocxFile.ReplaceImage("word/media/image"+strconv.Itoa(i+1)+".jpeg", imageName)
+						if err != nil {
+							logger.Logger.Errorf("替换图片失败: %v", err)
+						}
+					}
+				}
+
+				// 替换 extra 模板中的图片 (使用相同的 imageNames 列表和路径)
+				//if len(imageNames) > 0 { // 仅当有图片需要处理时执行
+				//	numExtraPlaceholders := extraDocxFile.ImagesLen()
+				//	for i := 0; i < numExtraPlaceholders; i++ {
+				//		if i < len(imageNames) {
+				//			imageFullPath := filepath.Join(imagesPath, imageNames[i])       // 图片路径相同
+				//			placeholder := "word/media/image" + strconv.Itoa(i+1) + ".jpeg" // 假设占位符相同
+				//
+				//			// 检查图片文件是否存在
+				//			if _, statErr := os.Stat(imageFullPath); statErr == nil {
+				//				err = extraDocxFile.ReplaceImage(placeholder, imageFullPath)
+				//				if err != nil {
+				//					logger.Logger.Errorf("额外模板替换图片占位符 %s 为 %s 失败: %v", placeholder, imageFullPath, err)
+				//				}
+				//			} else {
+				//				logger.Logger.Errorf("额外模板替换图片失败：图片文件 %s 不存在或无法访问: %v", imageFullPath, statErr)
+				//			}
+				//		} else {
+				//			logger.Logger.Warnf("额外模板图片占位符 word/media/image%d.jpeg 超出提供的图片数量 (%d)", i+1, len(imageNames))
+				//			break
+				//		}
+				//	}
+				//}
+				//
+				// 构建 extra 输出文件名和路径
+				lastUnderscore := strings.LastIndex(reportBaseName, "_")
+				var extraOutputFilename string
+				// 确保能正确分割基础名和时间戳
+				if lastUnderscore > 0 && lastUnderscore < len(reportBaseName)-1 {
+					basePart := reportBaseName[:lastUnderscore]                             // 高速...报告
+					tsPart := reportBaseName[lastUnderscore+1:]                             // 1745680397
+					extraOutputFilename = fmt.Sprintf("%s_extra_%s.docx", basePart, tsPart) // 高速...报告_extra_1745680397.docx
+				} else {
+					// 如果原始文件名不含 '_' 或 '_' 在末尾，提供一个备用名称
+					extraOutputFilename = fmt.Sprintf("%s_extra.docx", reportBaseName)
+					logger.Logger.Warnf("无法从 '%s' 标准化解析基础名和时间戳，额外文件名设为: %s", reportBaseName, extraOutputFilename)
+				}
+
+				extraOutputFileFullName := filepath.Join(reportPath, extraOutputFilename) // 完整路径
+
+				// 写入处理后的 extra 文档
+				if err = extraDocxFile.WriteToFile(extraOutputFileFullName); err != nil {
+					// 写入 extra 文件失败，记录错误，但不中止请求
+					logger.Logger.Errorf("额外DOCX文档写入失败 (%s): %v", extraOutputFileFullName, err)
+				} else {
+					logger.Logger.Infof("额外DOCX报告已生成: %s", extraOutputFileFullName)
+				}
+			}
+		}
+		time.Sleep(45 * time.Second)
 		c.JSON(http.StatusOK, gin.H{
 			"message":  "docx报告生成成功",
 			"filename": reportFilename,
@@ -280,11 +444,29 @@ func saveMdHandler(pySuffix string) func(c *gin.Context) {
 			return
 		}
 
-		mdTemplatePath := "templates/副本表1.md"
-		mdBytes, err := os.ReadFile(mdTemplatePath)
+		var templateFile string
+		switch req.ReportType {
+		case ReportTypeExpressway:
+			templateFile = "templates/高速公路JSON模板.md"
+		case ReportTypePostEvaluation:
+			templateFile = "templates/养护工程JSON模板.md"
+		case ReportTypeConstruction:
+			templateFile = "templates/建设工程JSON模板.md"
+		case ReportTypeRural:
+			templateFile = "templates/农村公路JSON模板.md"
+		case ReportTypeNationalProvincial:
+			templateFile = "templates/国省干线JSON模板.md"
+		case ReportTypeMarket:
+			templateFile = "templates/市场化JSON模板.md"
+		default:
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "报告类型有误"})
+			return
+		}
+
+		mdBytes, err := os.ReadFile(templateFile)
 		if err != nil {
-			logger.Logger.Errorf("读取MD模板失败 (%s): %v", mdTemplatePath, err)
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "读取MD模板失败"})
+			logger.Logger.Errorf("读取MD模板失败 (%s): %v", templateFile, err)
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("读取 %s 模板失败", templateFile)})
 			return
 		}
 		content := string(mdBytes)
@@ -335,39 +517,57 @@ func saveMdHandler(pySuffix string) func(c *gin.Context) {
 
 func calculate(pySuffix, reportType string, files []string, pqi, mileage float64) (map[string]any, error) {
 	var program string
+	var jsonResultFile string
 	switch reportType {
 	case ReportTypeExpressway:
-		program = "pys/dist/expressway" + pySuffix
+		program = "expressway" + pySuffix
+		jsonResultFile = expresswayReportBaseDir + "/result.json"
 	case ReportTypePostEvaluation:
-		program = "pys/dist/post_evaluation" + pySuffix
+		program = "post_evaluation" + pySuffix
+		jsonResultFile = postEvaluationReportBaseDir + "/result.json"
 	case ReportTypeConstruction:
-		program = "pys/dist/construction" + pySuffix
+		program = "construction" + pySuffix
+		jsonResultFile = constructionReportBaseDir + "/result.json"
 	case ReportTypeRural:
-		program = "pys/dist/rural" + pySuffix
+		program = "rural" + pySuffix
+		jsonResultFile = ruralReportBaseDir + "/result.json"
 	case ReportTypeNationalProvincial:
-		program = "pys/dist/national_provincial" + pySuffix
+		program = "national_provincial" + pySuffix
+		jsonResultFile = nationalProvinceReportBaseDir + "/result.json"
 	case ReportTypeMarket:
-		program = "pys/dist/market" + pySuffix
+		program = "market" + pySuffix
+		jsonResultFile = marketReportBaseDir + "/result.json"
 	default:
 		return nil, errors.New("不支持的报告类型")
 	}
 
-	args := []string{
-		"-files", strings.Join(files, " "),
-		"-pqi", fmt.Sprintf("%.2f", pqi),
-		"-d", fmt.Sprintf("%.2f", mileage),
-	}
+	logger.Logger.Infof("python exe: %s", program)
+	//args := []string{
+	//	"-files", strings.Join(files, " "),
+	//	"-pqi", fmt.Sprintf("%.2f", pqi),
+	//	"-d", fmt.Sprintf("%.2f", mileage),
+	//}
 
-	cmd := exec.Command(program, args...)
-	logger.Logger.Infof("execute program: %v", cmd)
-	output, err := cmd.CombinedOutput()
+	//cmd := exec.Command(program, args...)
+	//logger.Logger.Infof("execute program: %v", cmd)
+	//output, err := cmd.CombinedOutput()
+	//if err != nil {
+	//	logger.Logger.Errorf("Python执行失败 [%d]: %s\n输出: %s", cmd.ProcessState.ExitCode(), err, output)
+	//	return nil, err
+	//}
+	var data map[string]any
+	//if err = json.Unmarshal(output, &data); err != nil {
+	//	logger.Logger.Errorf("解析结果失败: %v\n原始输出: %s", err, output)
+	//	return nil, err
+	//}
+
+	js, err := os.ReadFile(jsonResultFile)
 	if err != nil {
-		logger.Logger.Errorf("Python执行失败 [%d]: %s\n输出: %s", cmd.ProcessState.ExitCode(), err, output)
+		logger.Logger.Errorf("读取 %s 失败: %v", jsonResultFile, err)
 		return nil, err
 	}
-	var data map[string]any
-	if err = json.Unmarshal(output, &data); err != nil {
-		logger.Logger.Errorf("解析结果失败: %v\n原始输出: %s", err, output)
+	if err = json.Unmarshal(js, &data); err != nil {
+		logger.Logger.Errorf("解析结果失败: %v", err)
 		return nil, err
 	}
 	return data, nil
@@ -628,7 +828,7 @@ func getReports(c *gin.Context) {
 		if info.IsDir() && strings.Contains(path, skipDir) {
 			return filepath.SkipDir
 		}
-		if !info.IsDir() && strings.Contains(path, ".doc") {
+		if !info.IsDir() && strings.Contains(path, ".doc") && !strings.Contains(path, "_extra") {
 			reports = append(reports, filepath.Base(path))
 		}
 		return nil
@@ -638,6 +838,11 @@ func getReports(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "查看报表列表失败"})
 		return
 	}
+	sort.Slice(reports, func(i, j int) bool {
+		timestampI := extractTimestamp(reports[i])
+		timestampJ := extractTimestamp(reports[j])
+		return timestampI > timestampJ
+	})
 	c.JSON(http.StatusOK, reports)
 }
 
@@ -668,4 +873,140 @@ func downloadWordHandler(c *gin.Context) {
 	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
 	c.File(fileFullName)
+}
+
+func deleteReportHandler(c *gin.Context) {
+	filename := c.Param("filename")
+
+	lastDotIndex := strings.LastIndex(filename, ".")
+	if lastDotIndex == -1 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的文件名格式"})
+		return
+	}
+	baseName := filename[:lastDotIndex]
+
+	reportDirPath := filepath.Join(reportsBaseDir, baseName)
+
+	// 删除整个目录及其内容
+	err := os.RemoveAll(reportDirPath)
+	if err != nil {
+		logger.Logger.Errorf("删除报告目录 %s 失败: %v", reportDirPath, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "删除报告失败"})
+		return
+	}
+
+	logger.Logger.Infof("报告目录已删除: %s", reportDirPath)
+	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("报告 %s 删除成功", filename)})
+}
+
+func extraExportHandler(c *gin.Context) {
+	originalFilename := c.Param("filename") // 例如: "普通国省干线抽检路段公路技术状况监管分析报告_1745680397.docx"
+	if originalFilename == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "缺少文件名参数"})
+		return
+	}
+
+	// --- 1. 解析原始文件名以获取目录名、基础名、时间戳和扩展名 ---
+	lastDotIndex := strings.LastIndex(originalFilename, ".")
+	if lastDotIndex == -1 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的文件名格式 (缺少扩展名)"})
+		return
+	}
+	extension := originalFilename[lastDotIndex:]     // .docx
+	directoryName := originalFilename[:lastDotIndex] // 目录名，例如: 普通国省干线...报告_1745680397
+	baseWithTimestamp := directoryName               // 和目录名相同
+
+	lastUnderscoreIndex := strings.LastIndex(baseWithTimestamp, "_")
+	if lastUnderscoreIndex == -1 || lastUnderscoreIndex == len(baseWithTimestamp)-1 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的文件名格式 (无法从文件名解析基础名称和时间戳部分)"})
+		return
+	}
+	baseReportNamePart := baseWithTimestamp[:lastUnderscoreIndex] // 例如: 普通国省干线...报告
+	timestampPart := baseWithTimestamp[lastUnderscoreIndex+1:]    // 例如: 1745680397
+
+	// --- 2. 根据基础报告名称部分确定报告类型 ---
+	var reportType string
+	var foundType bool
+	// 优先尝试精确匹配基础报告名部分
+	for rtConst, namePrefix := range ReportNameMap {
+		if baseReportNamePart == namePrefix {
+			reportType = rtConst
+			foundType = true
+			break
+		}
+	}
+	// 如果精确匹配失败（可能名称包含额外信息？），尝试用目录名前缀匹配
+	if !foundType {
+		for rtConst, namePrefix := range ReportNameMap {
+			if strings.HasPrefix(directoryName, namePrefix) {
+				reportType = rtConst
+				foundType = true
+				break
+			}
+		}
+	}
+
+	if !foundType {
+		errMsg := fmt.Sprintf("无法从文件名 '%s' 识别出报告类型", originalFilename)
+		logger.Logger.Warnf(errMsg)
+		c.JSON(http.StatusBadRequest, gin.H{"error": errMsg})
+		return
+	}
+
+	// --- 3. 检查报告类型是否允许此操作 ---
+	allowedTypes := map[string]bool{
+		ReportTypeExpressway:         true, // 高速公路
+		ReportTypeRural:              true, // 农村公路
+		ReportTypeNationalProvincial: true, // 普通国省干线
+	}
+	if !allowedTypes[reportType] {
+		errMsg := fmt.Sprintf("报告类型 '%s' (%s) 不支持此额外导出功能", ReportNameMap[reportType], reportType)
+		logger.Logger.Warnf("尝试为不支持的类型执行额外导出: %s (文件名: %s)", reportType, originalFilename)
+		c.JSON(http.StatusBadRequest, gin.H{"error": errMsg})
+		return
+	}
+
+	// --- 4. 构建目标 "额外" 文件的名称和完整路径 ---
+	// 目标文件名: 基础报告名 + "_extra_" + 时间戳 + 扩展名
+	extraFilename := fmt.Sprintf("%s_extra_%s%s", baseReportNamePart, timestampPart, extension)
+	// 目标文件完整路径: reports基础目录 / 目录名 / 额外文件名
+	fullPathToExtraFile := filepath.Join(reportsBaseDir, directoryName, extraFilename)
+
+	// --- 5. 检查目标 "额外" 文件是否存在 ---
+	if _, err := os.Stat(fullPathToExtraFile); os.IsNotExist(err) {
+		logger.Logger.Errorf("请求的额外导出文件 %s 不存在: %v", fullPathToExtraFile, err)
+		// 返回 404 Not Found，表示请求的特定资源（那个 _extra 文件）未找到
+		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("对应的额外导出文件 (%s) 未找到", extraFilename)})
+		return
+	} else if err != nil {
+		// 处理其他检查文件时可能发生的错误 (例如权限问题)
+		logger.Logger.Errorf("检查额外导出文件 %s 时出错: %v", fullPathToExtraFile, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "检查文件状态时发生服务器内部错误"})
+		return
+	}
+
+	// --- 6. 设置下载响应头 ---
+	encodedFilename := url.QueryEscape(extraFilename) // 对文件名进行URL编码
+	disposition := fmt.Sprintf("attachment; filename=\"%s\"; filename*=UTF-8''%s", extraFilename, encodedFilename)
+	c.Header("Content-Disposition", disposition)
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document") // Word文档的MIME类型
+
+	// --- 7. 发送文件 ---
+	c.File(fullPathToExtraFile)
+}
+
+func extractTimestamp(filename string) int64 {
+	lastUnderscore := strings.LastIndex(filename, "_")
+	lastDot := strings.LastIndex(filename, ".")
+
+	if lastUnderscore == -1 || lastDot == -1 || lastUnderscore >= lastDot-1 {
+		return 0
+	}
+
+	timestampStr := filename[lastUnderscore+1 : lastDot]
+	timestamp, err := strconv.ParseInt(timestampStr, 10, 64)
+	if err != nil {
+		return 0
+	}
+	return timestamp
 }
