@@ -4,7 +4,7 @@
 
 ## 一、基本情况
 
-全区市场化路段共计里程1751.861km，本次抽检路段里程GSALLCHECKKMkm，涉及市场化路段公路GSALLROAD条。其中国道GSGROAD条，省道GSSROAD条。全区抽检路段平均PQI值为GSALLROADPQI，其中国道抽检路段平均PQI值为GSGROADPQI，省道抽检路段平均PQI值为GSSROADPQI（所有的平均PQI值都是加权平均），以下为各分中心具体抽检情况：
+全区市场化路段共计里程1751.861km，本次抽检路段里程GSALLCHECKKMkm，涉及市场化路段公路GSALLROAD条。其中国道GSGROAD条，省道GSSROAD条。全区抽检路段平均PQI值为GSPQIALLROAD，其中国道抽检路段平均PQI值为GSPQIGROAD，省道抽检路段平均PQI值为GSPQISROAD（所有的平均PQI值都是加权平均），以下为各分中心具体抽检情况：
 
 ![404](gstable1.jpeg)
 
