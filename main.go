@@ -366,30 +366,6 @@ func saveDocxHandler(pySuffix string) func(c *gin.Context) {
 					}
 				}
 
-				// 替换 extra 模板中的图片 (使用相同的 imageNames 列表和路径)
-				//if len(imageNames) > 0 { // 仅当有图片需要处理时执行
-				//	numExtraPlaceholders := extraDocxFile.ImagesLen()
-				//	for i := 0; i < numExtraPlaceholders; i++ {
-				//		if i < len(imageNames) {
-				//			imageFullPath := filepath.Join(imagesPath, imageNames[i])       // 图片路径相同
-				//			placeholder := "word/media/image" + strconv.Itoa(i+1) + ".jpeg" // 假设占位符相同
-				//
-				//			// 检查图片文件是否存在
-				//			if _, statErr := os.Stat(imageFullPath); statErr == nil {
-				//				err = extraDocxFile.ReplaceImage(placeholder, imageFullPath)
-				//				if err != nil {
-				//					logger.Logger.Errorf("额外模板替换图片占位符 %s 为 %s 失败: %v", placeholder, imageFullPath, err)
-				//				}
-				//			} else {
-				//				logger.Logger.Errorf("额外模板替换图片失败：图片文件 %s 不存在或无法访问: %v", imageFullPath, statErr)
-				//			}
-				//		} else {
-				//			logger.Logger.Warnf("额外模板图片占位符 word/media/image%d.jpeg 超出提供的图片数量 (%d)", i+1, len(imageNames))
-				//			break
-				//		}
-				//	}
-				//}
-				//
 				// 构建 extra 输出文件名和路径
 				lastUnderscore := strings.LastIndex(reportBaseName, "_")
 				var extraOutputFilename string
