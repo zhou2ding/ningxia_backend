@@ -1182,6 +1182,7 @@ func exportReportHandler(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "写入临时文件失败"})
 			return
 		}
+		defer os.Remove(tempPdfPath)
 
 		rsForWatermarking, err := os.Open(tempPdfPath)
 		if err != nil {
