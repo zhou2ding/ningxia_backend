@@ -39,7 +39,7 @@ func SaveDocxHandler(pySuffix string) func(c *gin.Context) {
 		switch req.ReportType {
 		case ReportTypeExpressway:
 			templateFile = "templates/高速公路JSON模板.docx"
-		case ReportTypePostEvaluation:
+		case ReportTypeMaintenance:
 			templateFile = "templates/养护工程JSON模板.docx"
 		case ReportTypeConstruction:
 			templateFile = "templates/建设工程JSON模板.docx"
@@ -47,8 +47,8 @@ func SaveDocxHandler(pySuffix string) func(c *gin.Context) {
 			templateFile = "templates/农村公路JSON模板.docx"
 		case ReportTypeNationalProvincial:
 			templateFile = "templates/国省干线JSON模板.docx"
-		case ReportTypeMarket:
-			templateFile = "templates/市场化JSON模板.docx"
+		//case ReportTypeMarket:
+		//	templateFile = "templates/市场化JSON模板.docx"
 		default:
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "报告类型有误"})
 			return
@@ -98,16 +98,16 @@ func SaveDocxHandler(pySuffix string) func(c *gin.Context) {
 				switch req.ReportType {
 				case ReportTypeExpressway:
 					srcDir = expresswayReportBaseDir + "/images"
-				case ReportTypePostEvaluation:
-					srcDir = postEvaluationReportBaseDir + "/images"
+				case ReportTypeMaintenance:
+					srcDir = maintenanceReportBaseDir + "/images"
 				case ReportTypeConstruction:
 					srcDir = constructionReportBaseDir + "/images"
 				case ReportTypeRural:
 					srcDir = ruralReportBaseDir + "/images"
 				case ReportTypeNationalProvincial:
 					srcDir = nationalProvinceReportBaseDir + "/images"
-				case ReportTypeMarket:
-					srcDir = marketReportBaseDir + "/images"
+					//case ReportTypeMarket:
+					//	srcDir = marketReportBaseDir + "/images"
 				}
 				err = cp.Copy(filepath.Join(srcDir, imageNames[i]), filepath.Join(reportPath, "images", imageNames[i]))
 				if err != nil {

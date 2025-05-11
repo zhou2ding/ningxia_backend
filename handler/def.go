@@ -6,21 +6,21 @@ const (
 	pdfDir                        = "./tmp/pdf"
 	reportsBaseDir                = "./reports" // Base directory for saved reports
 	expresswayReportBaseDir       = "./reports/expressway"
-	postEvaluationReportBaseDir   = "./reports/postEvaluation"
+	maintenanceReportBaseDir      = "./reports/maintenance"
 	constructionReportBaseDir     = "./reports/construction"
 	ruralReportBaseDir            = "./reports/rural"
 	nationalProvinceReportBaseDir = "./reports/nationalProvince"
-	marketReportBaseDir           = "./reports/market"
-	wkhtmltopdfPath               = "./wkhtmltox/bin/wkhtmltopdf.exe"
+	//marketReportBaseDir           = "./reports/market"
+	wkhtmltopdfPath = "./wkhtmltox/bin/wkhtmltopdf.exe"
 )
 
 const (
 	ReportTypeExpressway         = "EXPRESSWAY"
-	ReportTypePostEvaluation     = "POST_EVALUATION"
+	ReportTypeMaintenance        = "MAINTENANCE"
 	ReportTypeConstruction       = "CONSTRUCTION"
 	ReportTypeRural              = "RURAL"
 	ReportTypeNationalProvincial = "NATIONAL_PROVINCIAL"
-	ReportTypeMarket             = "MARKET"
+	//ReportTypeMarket             = "MARKET"
 
 	PyRespImagesKey      = "IMAGES"
 	PyRespExtraImagesKey = "EXTRA_IMAGES"
@@ -30,19 +30,19 @@ const (
 var (
 	ReportNameMap = map[string]string{
 		ReportTypeExpressway:         "高速公路抽检路段公路技术状况监管分析报告",
-		ReportTypePostEvaluation:     "工程后评价技术状况监管分析报告",
+		ReportTypeMaintenance:        "养护工程路段技术状况监管分析报告",
 		ReportTypeConstruction:       "建设工程路段技术状况监管分析报告",
-		ReportTypeRural:              "农村路抽检路段公路技术状况监管分析报告",
+		ReportTypeRural:              "农村公路抽检路段公路技术状况监管分析报告",
 		ReportTypeNationalProvincial: "普通国省干线抽检路段公路技术状况监管分析报告",
-		ReportTypeMarket:             "市场化路段抽检路段公路技术状况监管分析报告",
+		//ReportTypeMarket:             "市场化路段抽检路段公路技术状况监管分析报告",
 	}
 	ReportDirs = []string{
 		expresswayReportBaseDir,
-		postEvaluationReportBaseDir,
+		maintenanceReportBaseDir,
 		constructionReportBaseDir,
 		ruralReportBaseDir,
 		nationalProvinceReportBaseDir,
-		marketReportBaseDir,
+		//marketReportBaseDir,
 	}
 )
 

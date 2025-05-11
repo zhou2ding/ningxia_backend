@@ -36,7 +36,7 @@ func SaveMdHandler(pySuffix string) func(c *gin.Context) {
 		switch req.ReportType {
 		case ReportTypeExpressway:
 			templateFile = "templates/高速公路JSON模板.md"
-		case ReportTypePostEvaluation:
+		case ReportTypeMaintenance:
 			templateFile = "templates/养护工程JSON模板.md"
 		case ReportTypeConstruction:
 			templateFile = "templates/建设工程JSON模板.md"
@@ -44,8 +44,8 @@ func SaveMdHandler(pySuffix string) func(c *gin.Context) {
 			templateFile = "templates/农村公路JSON模板.md"
 		case ReportTypeNationalProvincial:
 			templateFile = "templates/国省干线JSON模板.md"
-		case ReportTypeMarket:
-			templateFile = "templates/市场化JSON模板.md"
+		//case ReportTypeMarket:
+		//	templateFile = "templates/市场化JSON模板.md"
 		default:
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "报告类型有误"})
 			return
