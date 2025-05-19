@@ -134,9 +134,6 @@ func calculate(pySuffix, reportType string, files []string, pqi, mileage float64
 	case ReportTypeNationalProvincial:
 		program = "national_provincial" + pySuffix
 		jsonResultFile = nationalProvinceReportBaseDir + "/result.json"
-	//case ReportTypeMarket:
-	//	program = "market" + pySuffix
-	//	jsonResultFile = marketReportBaseDir + "/result.json"
 	default:
 		return nil, errors.New("不支持的报告类型")
 	}

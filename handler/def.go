@@ -10,7 +10,7 @@ const (
 	constructionReportBaseDir     = "./reports/construction"
 	ruralReportBaseDir            = "./reports/rural"
 	nationalProvinceReportBaseDir = "./reports/nationalProvince"
-	//marketReportBaseDir           = "./reports/market"
+
 	wkhtmltopdfPath = "./wkhtmltox/bin/wkhtmltopdf.exe"
 )
 
@@ -20,7 +20,6 @@ const (
 	ReportTypeConstruction       = "CONSTRUCTION"
 	ReportTypeRural              = "RURAL"
 	ReportTypeNationalProvincial = "NATIONAL_PROVINCIAL"
-	//ReportTypeMarket             = "MARKET"
 
 	PyRespImagesKey      = "IMAGES"
 	PyRespExtraImagesKey = "EXTRA_IMAGES"
