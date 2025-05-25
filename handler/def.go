@@ -4,12 +4,13 @@ const (
 	uploadDir                     = "./tmp/uploads"
 	maxFileSize                   = 1024 * 1024 * 1024 // 1024MB
 	pdfDir                        = "./tmp/pdf"
-	reportsBaseDir                = "./reports" // Base directory for saved reports
-	expresswayReportBaseDir       = "./reports/expressway"
-	maintenanceReportBaseDir      = "./reports/maintenance"
-	constructionReportBaseDir     = "./reports/construction"
-	ruralReportBaseDir            = "./reports/rural"
-	nationalProvinceReportBaseDir = "./reports/nationalProvince"
+	outputsDir                    = "./pys/output"
+	reportsBaseDir                = "./pys/output" // Base directory for saved reports
+	expresswayReportBaseDir       = "./pys/output/highway_20250520205333"
+	maintenanceReportBaseDir      = "./pys/output/maintain_20250522110845"
+	constructionReportBaseDir     = "./pys/output/maintain_20250522110845"
+	ruralReportBaseDir            = "./pys/output/rural"
+	nationalProvinceReportBaseDir = "./pys/output/GSGX_20250525121953"
 
 	wkhtmltopdfPath = "./wkhtmltox/bin/wkhtmltopdf.exe"
 )
@@ -28,12 +29,9 @@ const (
 
 var (
 	ReportNameMap = map[string]string{
-		ReportTypeExpressway:         "高速公路抽检路段公路技术状况监管分析报告",
-		ReportTypeMaintenance:        "养护工程路段技术状况监管分析报告",
-		ReportTypeConstruction:       "建设工程路段技术状况监管分析报告",
-		ReportTypeRural:              "农村公路抽检路段公路技术状况监管分析报告",
-		ReportTypeNationalProvincial: "普通国省干线抽检路段公路技术状况监管分析报告",
-		//ReportTypeMarket:             "市场化路段抽检路段公路技术状况监管分析报告",
+		ReportTypeNationalProvincial: "GSGX",
+		ReportTypeExpressway:         "highway",
+		ReportTypeMaintenance:        "maintain",
 	}
 	ReportDirs = []string{
 		expresswayReportBaseDir,

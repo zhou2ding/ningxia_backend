@@ -68,3 +68,31 @@ func GetNationalSetting(c *gin.Context) {
 
 	c.JSON(http.StatusOK, setting)
 }
+
+func SaveCalculationSetting(c *gin.Context) {
+	var setting dao.CalculationSetting
+	if err := c.ShouldBindJSON(&setting); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	dao.GetDB().Where("road_type = ?", setting.RoadType).Delete(&dao.CalculationSetting{})
+	dao.GetDB().Create(&setting)
+	c.JSON(200, gin.H{"message": "计算指标保存成功"})
+}
+
+func GetCalculationSetting(c *gin.Context) {
+	roadType := c.Param("roadType")
+
+	var setting dao.CalculationSetting
+	if err := dao.GetDB().Where("road_type = ?", roadType).First(&setting).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("未找到%s的计算指标配置", roadType)})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "数据库查询失败"})
+		return
+	}
+
+	c.JSON(http.StatusOK, setting)
+}

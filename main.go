@@ -13,8 +13,9 @@ import (
 )
 
 const (
-	uploadDir = "./tmp/uploads"
-	pdfDir    = "./tmp/pdf"
+	uploadDir  = "./tmp/uploads"
+	pdfDir     = "./tmp/pdf"
+	outputsDir = "./pys/output"
 )
 
 func init() {
@@ -54,12 +55,16 @@ func main() {
 		logger.Logger.Errorf("初始化数据库失败: %v", err)
 		return
 	}
-	// 创建上传目录
+	// 创建上传目录和结果目录
 	if err = os.MkdirAll(uploadDir, 0755); err != nil {
 		logger.Logger.Errorf("创建上传目录失败: %v", err)
 		return
 	}
 	if err = os.MkdirAll(pdfDir, 0755); err != nil {
+		logger.Logger.Errorf("创建pdf目录失败: %v", err)
+		return
+	}
+	if err = os.MkdirAll(outputsDir, 0755); err != nil {
 		logger.Logger.Errorf("创建pdf目录失败: %v", err)
 		return
 	}
@@ -70,6 +75,14 @@ func main() {
 			return
 		}
 	}
+
+	// 读取已有的报告目录
+	dirs, _ := os.ReadDir(outputsDir)
+	var outputs []string
+	for _, dir := range dirs {
+		outputs = append(outputs, dir.Name())
+	}
+	handler.RefreshOutputs(outputs)
 
 	r := gin.Default()
 	config := cors.DefaultConfig()
@@ -104,6 +117,8 @@ func main() {
 		setting.POST("/national", handler.SaveNationalSettings)
 		setting.GET("/province/:year", handler.GetProvinceSetting)
 		setting.GET("/national/:plan", handler.GetNationalSetting)
+		setting.POST("/calculation", handler.SaveCalculationSetting)
+		setting.GET("/calculation/:roadType", handler.GetCalculationSetting)
 	}
 
 	road := r.Group("/api/road")

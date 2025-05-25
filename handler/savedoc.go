@@ -29,7 +29,7 @@ func SaveDocxHandler(pySuffix string) func(c *gin.Context) {
 			return
 		}
 
-		data, err := calculate(pySuffix, req.ReportType, req.Files, req.PQI, req.Mileage)
+		data, _, err := calculate(pySuffix, req.ReportType, req.Files, req.PQI, req.Mileage)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "计算失败"})
 			return

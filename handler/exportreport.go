@@ -81,29 +81,59 @@ func ExportReportHandler(c *gin.Context) {
 <head>
     <meta charset="utf-8">
     <style>
-        body {
-            font-family: "Microsoft YaHei", sans-serif;
-            font-size: 20pt; /* 用户找到合适的字号 */
-            line-height: 1.5;
-            /* 移除 position: relative; 如果body不作为其他元素的定位上下文 */
+        @page {
+            size: A4;
+            margin: 2.54cm 3.18cm; /* 上下2.54cm，左右3.18cm */
         }
-        h1 { font-size: 36pt; margin-top: 20pt; margin-bottom: 10pt; }
-        h2 { font-size: 32pt; margin-top: 18pt; margin-bottom: 8pt; }
-        h3 { font-size: 28pt; margin-top: 16pt; margin-bottom: 6pt; }
-        p { font-size: 20pt; margin-top: 6pt; margin-bottom: 6pt; }
+        body {
+            font-family: "FangSong", sans-serif; /* 正文仿宋 */
+            font-size: 16pt; /* 三号字约16pt */
+            line-height: 1.0; /* 单倍行距 */
+            text-align: justify; /* 两端对齐 */
+            text-indent: 2em; /* 首行缩进2字符 */
+            margin: 0;
+            padding: 0;
+        }
+        h1 {
+            font-family: "FangSong_GBK", sans-serif; /* 方正小标宋_GBK */
+            font-size: 22pt; /* 二号字约22pt */
+            font-weight: bold;
+            text-align: center;
+            line-height: 36pt; /* 固定值36磅 */
+            margin-top: 0;
+            text-indent: 0; /* 标题不需要缩进 */
+        }
+        h2, h3, h4 {
+            font-family: "FangSong_GBK", sans-serif; /* 小标题方正小标宋_GBK */
+            font-size: 16pt; /* 三号字 */
+            line-height: 28pt; /* 固定值28磅 */
+            text-indent: 2em; /* 首行缩进 */
+            text-align: justify; /* 两端对齐 */
+        }
         table {
-             border-collapse: collapse;
-             width: 100%;
-             margin-top: 10pt;
-             margin-bottom: 10pt;
-             font-size: 9pt;
+            border-collapse: collapse;
+            width: 14.64cm; /* 表格总宽14.64cm */
+            margin: 10pt auto; /* 水平居中 */
+            font-family: "SimSun", sans-serif; /* 宋体 */
+            font-size: 11pt; /* 11号字 */
+			border-spacing: 0; /* 消除单元格间距 */
         }
         th, td {
-            border: 1px solid #ddd;
-            padding: 8pt;
-            text-align: left;
+            border: 0.5pt solid black; /* 0.5磅直线边框 */
+            padding: 4pt 8px;
+            text-align: center; /* 水平居中 */
+            vertical-align: middle; /* 垂直居中 */
+            font-weight: normal;
+			padding-left: 0 !important; /* 强制左侧无内边距 */
+			text-indent: 0 !important; /* 消除文本缩进 */
+			margin-left: 0 !important;
+			width: 1.08cm;
         }
-        th { background-color: #f2f2f2; }
+        /* 其他列自动调整 */
+        p {
+            margin: 0 0 6pt 0;
+            text-indent: 2em;
+        }
     </style>
 </head>
 `

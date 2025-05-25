@@ -21,7 +21,7 @@ func InitDB() (err error) {
 		return err
 	}
 
-	err = db.AutoMigrate(&ProvinceSetting{}, &NationalSetting{}, &Road{})
+	err = db.AutoMigrate(&ProvinceSetting{}, &NationalSetting{}, &Road{}, &CalculationSetting{})
 	if err != nil {
 		logger.Logger.Errorf("failed to AutoMigrate: %v", err)
 		return err

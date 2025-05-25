@@ -7,3 +7,6 @@
 /pys/dist
 /pys/*spec
 /reports
+/wkhtmltox
+/*.exe
+/pys/output

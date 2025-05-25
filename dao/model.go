@@ -38,3 +38,26 @@ type NationalSetting struct {
 	RuralMQI             float64 `json:"ruralMqi"`
 	MaintenanceRate      float64 `json:"maintenanceRate"`
 }
+
+type CalculationSetting struct {
+	gorm.Model    `json:"-"`
+	RoadType      string  `json:"roadType" gorm:"unique"`
+	PqiTarget     float64 `json:"pqiTarget"`
+	NetworkPQI    float64 `json:"networkPQI"`
+	NetworkPQI1   float64 `json:"networkPQI1"`
+	NetworkPQI2   float64 `json:"networkPQI2"`
+	ExcellentRate float64 `json:"excellentRate"`
+	UnitPQI       float64 `json:"unitPQI"`
+	UnitPCI       float64 `json:"unitPCI"`
+	UnitRQI       float64 `json:"unitRQI"`
+	UnitRDI       float64 `json:"unitRDI"`
+	UnitSRI       float64 `json:"unitSRI"`
+	UnitPQI1      float64 `json:"unitPQI1"`
+	UnitPCI1      float64 `json:"unitPCI1"`
+	UnitRQI1      float64 `json:"unitRQI1"`
+	UnitRDI1      float64 `json:"unitRDI1"`
+	UnitSRI1      float64 `json:"unitSRI1"`
+	UnitPQI2      float64 `json:"unitPQI2"`
+	UnitPCI2      float64 `json:"unitPCI2"`
+	UnitRQI2      float64 `json:"unitRQI2"`
+}

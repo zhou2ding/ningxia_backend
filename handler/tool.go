@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/xuri/excelize/v2"
 	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/transform"
 	"io"
@@ -12,10 +13,16 @@ import (
 	"ningxia_backend/pkg/logger"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 )
+
+var outputs []string
+
+func RefreshOutputs(src []string) {
+	outputs = src[:]
+}
 
 func unzip(src, dest string) ([]string, error) {
 	var filenames []string
@@ -115,27 +122,35 @@ func decodeGBK(s string) (string, error) {
 	return string(buf), nil
 }
 
-func calculate(pySuffix, reportType string, files []string, pqi, mileage float64) (map[string]any, error) {
-	var program string
-	var jsonResultFile string
+func calculate(pySuffix, reportType string, files []string, pqi, mileage float64) (map[string]any, string, error) {
+	var (
+		program        string
+		jsonResultFile string
+		reportDirName  string
+	)
 	switch reportType {
 	case ReportTypeExpressway:
 		program = "expressway" + pySuffix
-		jsonResultFile = expresswayReportBaseDir + "/result.json"
+		jsonResultFile = expresswayReportBaseDir + "/output.json"
+		reportDirName = expresswayReportBaseDir
 	case ReportTypeMaintenance:
 		program = "maintenance" + pySuffix
-		jsonResultFile = maintenanceReportBaseDir + "/result.json"
+		jsonResultFile = maintenanceReportBaseDir + "/output.json"
+		reportDirName = maintenanceReportBaseDir
 	case ReportTypeConstruction:
 		program = "construction" + pySuffix
-		jsonResultFile = constructionReportBaseDir + "/result.json"
+		jsonResultFile = constructionReportBaseDir + "/output.json"
+		reportDirName = constructionReportBaseDir
 	case ReportTypeRural:
 		program = "rural" + pySuffix
-		jsonResultFile = ruralReportBaseDir + "/result.json"
+		jsonResultFile = ruralReportBaseDir + "/output.json"
+		reportDirName = ruralReportBaseDir
 	case ReportTypeNationalProvincial:
 		program = "national_provincial" + pySuffix
-		jsonResultFile = nationalProvinceReportBaseDir + "/result.json"
+		jsonResultFile = nationalProvinceReportBaseDir + "/output.json"
+		reportDirName = nationalProvinceReportBaseDir
 	default:
-		return nil, errors.New("不支持的报告类型")
+		return nil, "", errors.New("不支持的报告类型")
 	}
 
 	logger.Logger.Infof("python exe: %s", program)
@@ -161,27 +176,291 @@ func calculate(pySuffix, reportType string, files []string, pqi, mileage float64
 	js, err := os.ReadFile(jsonResultFile)
 	if err != nil {
 		logger.Logger.Errorf("读取 %s 失败: %v", jsonResultFile, err)
-		return nil, err
+		return nil, "", err
 	}
 	if err = json.Unmarshal(js, &data); err != nil {
 		logger.Logger.Errorf("解析结果失败: %v", err)
-		return nil, err
+		return nil, "", err
 	}
-	return data, nil
+	return data, reportDirName, nil
 }
 
-func extractTimestamp(filename string) int64 {
-	lastUnderscore := strings.LastIndex(filename, "_")
-	lastDot := strings.LastIndex(filename, ".")
+func extractTimestamp(dirName string) int64 {
+	lastUnderscore := strings.LastIndex(dirName, "_")
 
-	if lastUnderscore == -1 || lastDot == -1 || lastUnderscore >= lastDot-1 {
+	if lastUnderscore == -1 {
 		return 0
 	}
 
-	timestampStr := filename[lastUnderscore+1 : lastDot]
-	timestamp, err := strconv.ParseInt(timestampStr, 10, 64)
+	timeStr := dirName[lastUnderscore+1:]
+	timestamp, err := time.Parse("20060102150405", timeStr)
 	if err != nil {
 		return 0
 	}
-	return timestamp
+
+	return timestamp.Unix()
+}
+func convertExcelToMarkdown(filePath string) (string, error) {
+	f, err := excelize.OpenFile(filePath)
+	if err != nil {
+		return "", fmt.Errorf("无法打开Excel文件 '%s': %w", filePath, err)
+	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			logger.Logger.Errorf("关闭Excel文件 '%s' 失败: %v", filePath, err)
+		}
+	}()
+
+	sheetList := f.GetSheetList()
+	if len(sheetList) == 0 {
+		return "", fmt.Errorf("Excel文件 '%s' 中没有工作表", filePath)
+	}
+	sheetName := sheetList[0] // Process only the first sheet
+
+	rows, err := f.GetRows(sheetName)
+	if err != nil {
+		return "", fmt.Errorf("无法从工作表 '%s' (文件 '%s') 读取行数据: %w", sheetName, filePath, err)
+	}
+
+	if len(rows) == 0 {
+		logger.Logger.Infof("Excel文件 '%s' 的工作表 '%s' 为空。", filePath, sheetName)
+		return "", nil // Empty sheet
+	}
+
+	header := rows[0]
+	if len(header) == 0 {
+		logger.Logger.Infof("Excel文件 '%s' 的工作表 '%s' 表头行为空。", filePath, sheetName)
+		return "", nil // Empty header
+	}
+
+	var mdTable strings.Builder
+	var displayHeaderNames []string     // Column names to display in Markdown
+	var displayColOriginalIndices []int // Original Excel column indices for the display columns
+	highlightLogic := make(map[int]int) // Key: index of data column to potentially highlight, Value: index of its corresponding "_合格" column
+
+	// 1. Parse header to identify columns to display and columns for highlight logic
+	for i, cellName := range header {
+		trimmedCellName := strings.TrimSpace(cellName)
+		if strings.HasSuffix(trimmedCellName, "_合格") {
+			// This is a qualifier column. It will be hidden.
+			// Its left neighbor (if exists) is the data column.
+			if i > 0 {
+				highlightLogic[i-1] = i // Map data column index to its qualifier column index
+			}
+		} else {
+			// This is not a qualifier column. It should be displayed.
+			displayHeaderNames = append(displayHeaderNames, trimmedCellName)
+			displayColOriginalIndices = append(displayColOriginalIndices, i)
+		}
+	}
+
+	if len(displayHeaderNames) == 0 {
+		logger.Logger.Infof("解析后，Excel文件 '%s' 没有可显示的列 (所有列都以 '_合格' 结尾或表头为空)。", filePath)
+		return "", nil // No columns left to display
+	}
+
+	// 2. Build Markdown table header
+	mdTable.WriteString("|")
+	for _, name := range displayHeaderNames {
+		sanitizedName := strings.ReplaceAll(name, "|", "\\|") // Escape pipes in header names
+		mdTable.WriteString(" ")
+		mdTable.WriteString(sanitizedName)
+		mdTable.WriteString(" |")
+	}
+	mdTable.WriteString("\n")
+
+	// 3. Build Markdown table separator
+	mdTable.WriteString("|")
+	for range displayHeaderNames {
+		mdTable.WriteString("---|")
+	}
+	mdTable.WriteString("\n")
+
+	// 4. Process data rows
+	for r := 1; r < len(rows); r++ { // Start from the second row (data)
+		excelRow := rows[r]
+		mdTable.WriteString("|")
+
+		for _, dataColIdx := range displayColOriginalIndices { // Iterate through columns that should be displayed
+			cellValue := ""
+			if dataColIdx < len(excelRow) {
+				cellValue = excelRow[dataColIdx]
+			}
+			cellValue = strings.TrimSpace(cellValue) // Trim spaces from cell value
+
+			// ------ MODIFIED LOGIC FOR COMMA HANDLING ------
+			processedCellContent := ""
+			if strings.Contains(cellValue, ",") {
+				parts := strings.Split(cellValue, ",")
+				var lines []string
+				elementsPerLine := 10 // 每15个元素换行
+
+				for i := 0; i < len(parts); i += elementsPerLine {
+					end := i + elementsPerLine
+					if end > len(parts) {
+						end = len(parts)
+					}
+					chunk := parts[i:end]
+					// Sanitize each part in the chunk for pipes and trim spaces (again, as split might re-introduce them)
+					for j, p := range chunk {
+						chunk[j] = strings.ReplaceAll(strings.TrimSpace(p), "|", "\\|")
+					}
+					lines = append(lines, strings.Join(chunk, ",")) // Join parts in a chunk with comma
+				}
+				processedCellContent = strings.Join(lines, ",<br>") // Join lines with ",<br>" to retain comma before break
+				// If the last line segment ends with a comma because it was exactly at a multiple of 15,
+				// and then ",<br>" is added, it might result in ",,<br>".
+				// Let's refine: only add <br> between groups.
+				processedCellContent = strings.Join(lines, "<br>") // Join lines with <br>
+			} else {
+				// No commas, just sanitize for pipes
+				processedCellContent = strings.ReplaceAll(cellValue, "|", "\\|")
+			}
+			// ------ END OF MODIFIED LOGIC ------
+
+			applyRedBackground := false
+			// Check if this data column has a corresponding qualifier column for highlighting
+			if qualifierColIdx, needsHighlightCheck := highlightLogic[dataColIdx]; needsHighlightCheck {
+				if qualifierColIdx < len(excelRow) {
+					qualifierValue := strings.ToUpper(strings.TrimSpace(excelRow[qualifierColIdx]))
+					if qualifierValue == "TRUE" { // Assuming "TRUE" (case-insensitive) means highlight
+						applyRedBackground = true
+					}
+				}
+			}
+
+			if applyRedBackground {
+				// Using HTML span for background color. This works in many Markdown viewers.
+				cellValueFormatted := fmt.Sprintf(`<span style="background-color: #D32F2F; color: white; padding: 2px 4px;">%s</span>`, processedCellContent)
+				mdTable.WriteString(" ")
+				mdTable.WriteString(cellValueFormatted)
+				mdTable.WriteString(" |")
+			} else {
+				mdTable.WriteString(" ")
+				mdTable.WriteString(processedCellContent) // Use the potentially multi-line processed content
+				mdTable.WriteString(" |")
+			}
+		}
+		mdTable.WriteString("\n")
+	}
+
+	return mdTable.String(), nil
+}
+
+func convertExcelToMarkdown2(filePath string) (string, error) {
+	f, err := excelize.OpenFile(filePath)
+	if err != nil {
+		return "", fmt.Errorf("无法打开Excel文件 '%s': %w", filePath, err)
+	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			logger.Logger.Errorf("关闭Excel文件 '%s' 失败: %v", filePath, err)
+		}
+	}()
+
+	sheetList := f.GetSheetList()
+	if len(sheetList) == 0 {
+		return "", fmt.Errorf("Excel文件 '%s' 中没有工作表", filePath)
+	}
+	sheetName := sheetList[0]
+
+	rows, err := f.GetRows(sheetName)
+	if err != nil {
+		return "", fmt.Errorf("无法从工作表 '%s' (文件 '%s') 读取行数据: %w", sheetName, filePath, err)
+	}
+
+	if len(rows) == 0 {
+		logger.Logger.Infof("Excel文件 '%s' 的工作表 '%s' 为空。", filePath, sheetName)
+		return "", nil
+	}
+
+	header := rows[0]
+	if len(header) == 0 {
+		logger.Logger.Infof("Excel文件 '%s' 的工作表 '%s' 表头行为空。", filePath, sheetName)
+		return "", nil
+	}
+
+	var mdTable strings.Builder
+	var displayHeaderNames []string     // Column names to display in Markdown
+	var displayColOriginalIndices []int // Original Excel column indices for the display columns
+	highlightLogic := make(map[int]int) // Key: index of data column to potentially highlight, Value: index of its corresponding "_合格" column
+
+	// 1. Parse header to identify columns to display and columns for highlight logic
+	for i, cellName := range header {
+		if strings.HasSuffix(cellName, "_合格") {
+			// This is a qualifier column. It will be hidden.
+			// Its left neighbor (if exists) is the data column.
+			if i > 0 {
+				// The column at index i-1 is the data column.
+				// The column at index i is its qualifier.
+				highlightLogic[i-1] = i
+			}
+		} else {
+			// This is not a qualifier column. It should be displayed.
+			displayHeaderNames = append(displayHeaderNames, cellName)
+			displayColOriginalIndices = append(displayColOriginalIndices, i)
+		}
+	}
+
+	if len(displayHeaderNames) == 0 {
+		logger.Logger.Infof("解析后，Excel文件 '%s' 没有可显示的列 (所有列都以 '_合格' 结尾或表头为空)。", filePath)
+		return "", nil // No columns left to display
+	}
+
+	// 2. Build Markdown table header
+	mdTable.WriteString("|")
+	for _, name := range displayHeaderNames {
+		sanitizedName := strings.ReplaceAll(name, "|", "\\|")
+		mdTable.WriteString(" ")
+		mdTable.WriteString(sanitizedName)
+		mdTable.WriteString(" |")
+	}
+	mdTable.WriteString("\n")
+
+	// 3. Build Markdown table separator
+	mdTable.WriteString("|")
+	for range displayHeaderNames {
+		mdTable.WriteString("---|")
+	}
+	mdTable.WriteString("\n")
+
+	// 4. Process data rows
+	for r := 1; r < len(rows); r++ { // Start from the second row (data)
+		excelRow := rows[r]
+		mdTable.WriteString("|")
+
+		for _, dataColIdx := range displayColOriginalIndices { // Iterate through columns that should be displayed
+			cellValue := ""
+			if dataColIdx < len(excelRow) {
+				cellValue = excelRow[dataColIdx]
+			}
+
+			applyRedBackground := false
+			// Check if this data column has a corresponding qualifier column for highlighting
+			if qualifierColIdx, needsHighlightCheck := highlightLogic[dataColIdx]; needsHighlightCheck {
+				if qualifierColIdx < len(excelRow) {
+					qualifierValue := strings.ToUpper(strings.TrimSpace(excelRow[qualifierColIdx]))
+					if qualifierValue == "TRUE" {
+						applyRedBackground = true
+					}
+				}
+			}
+
+			sanitizedCellValue := strings.ReplaceAll(cellValue, "|", "\\|")
+
+			if applyRedBackground {
+				cellValueFormatted := fmt.Sprintf(`<span style="background-color: #D32F2F; color: white; padding: 2px 4px;">%s</span>`, sanitizedCellValue)
+				mdTable.WriteString(" ")
+				mdTable.WriteString(cellValueFormatted)
+				mdTable.WriteString(" |")
+			} else {
+				mdTable.WriteString(" ")
+				mdTable.WriteString(sanitizedCellValue)
+				mdTable.WriteString(" |")
+			}
+		}
+		mdTable.WriteString("\n")
+	}
+
+	return mdTable.String(), nil
 }
