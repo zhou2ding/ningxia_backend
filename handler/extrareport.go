@@ -82,7 +82,7 @@ func ExtraExportHandler(c *gin.Context) {
 	// 目标文件名: 基础报告名 + "_extra_" + 时间戳 + 扩展名
 	extraFilename := fmt.Sprintf("%s_extra_%s%s", baseReportNamePart, timestampPart, extension)
 	// 目标文件完整路径: reports基础目录 / 目录名 / 额外文件名
-	fullPathToExtraFile := filepath.Join(reportsBaseDir, directoryName, extraFilename)
+	fullPathToExtraFile := filepath.Join(ReportsBaseDir, directoryName, extraFilename)
 
 	// --- 5. 检查目标 "额外" 文件是否存在 ---
 	if _, err := os.Stat(fullPathToExtraFile); os.IsNotExist(err) {

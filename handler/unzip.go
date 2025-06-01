@@ -21,11 +21,11 @@ func UnzipHandler() func(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "创建临时目录失败"})
 			return
 		}
-		var allProcessedFilePaths []string
+		processedFilePathsMap := make(map[string]string)
 
 		// 前端可能发送的ZIP和Excel文件的表单字段名
-		zipFieldNames := []string{"threeDimensionalDataZip", "cicsDataZip", "previousYearDiseaseZip"}
-		excelFieldNames := []string{"managementDetailFile", "unitLevelDetailFile", "roadConditionFile", "firstInspectionExcel", "secondInspectionExcel", "diseaseDataExcel"}
+		zipFieldNames := []string{"threeDimensionalDataZip", "previousYearDiseaseZip"}
+		excelFieldNames := []string{"managementDetailFile", "cicsDataFile", "unitLevelDetailFile", "roadConditionFile", "firstInspectionExcel", "secondInspectionExcel", "diseaseDataExcel"}
 
 		// 逐个处理ZIP文件
 		for _, fieldName := range zipFieldNames {
@@ -58,13 +58,13 @@ func UnzipHandler() func(c *gin.Context) {
 			}
 
 			// 解压ZIP文件
-			unzippedFiles, err := unzip(tempZipPath, extractDir)
+			_, err = unzip(tempZipPath, extractDir)
 			if err != nil {
 				logger.Logger.Errorf("解压ZIP文件 '%s' 失败: %v", file.Filename, err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("解压文件 '%s' 失败", file.Filename)})
 				return
 			}
-			allProcessedFilePaths = append(allProcessedFilePaths, unzippedFiles...)
+			processedFilePathsMap[fieldName] = extractDir
 
 			// 解压后删除临时的ZIP文件
 			if err = os.Remove(tempZipPath); err != nil {
@@ -93,8 +93,8 @@ func UnzipHandler() func(c *gin.Context) {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("保存文件 '%s' 失败", file.Filename)})
 				return
 			}
-			allProcessedFilePaths = append(allProcessedFilePaths, destExcelPath)
+			processedFilePathsMap[fieldName] = destExcelPath
 		}
-		c.JSON(http.StatusOK, gin.H{"files": allProcessedFilePaths})
+		c.JSON(http.StatusOK, gin.H{"files": processedFilePathsMap})
 	}
 }

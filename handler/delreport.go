@@ -20,7 +20,7 @@ func DeleteReportHandler(c *gin.Context) {
 	}
 	baseName := filename[:lastDotIndex]
 
-	reportDirPath := filepath.Join(reportsBaseDir, baseName)
+	reportDirPath := filepath.Join(ReportsBaseDir, baseName)
 
 	// 删除整个目录及其内容
 	err := os.RemoveAll(reportDirPath)

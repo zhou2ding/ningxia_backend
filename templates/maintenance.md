@@ -1,18 +1,18 @@
 ## **宁夏公路管理中心养护工程后评价路段路面技术状况监管报告**
 
-依据《公路养护工程管理办法》（交公路发〔2018〕33号）等相关内容，宁夏公路管理中心对ROAD_NAME养护工程后路段进行检测，以下为路面检测监管考核结果。
+依据《公路养护工程管理办法》（交公路发〔2018〕33号）等相关内容，宁夏公路管理中心对（PROJECT_NAME）养护工程后评价路段进行检测，以下为路面检测监管考核结果。
 
 #### **一、基本情况**
 
 本次检测路段桩号为：
 
-（1）ROAD_NAME，ZHUANGHAO；
+（1）ROAD_NAME，ZHUANGHAO，ALL_DISTANCE；
 
 #### **二、检测结果比对情况**
 
 1.实施前后病害对比
 
-经过分析，实施前的病害面积为before_disease平米，实施后病害面积为after_disease平米。实施前、后病害明细如下：
+经过分析，实施前的病害面积为BEFORE_DISEASE平米，实施后病害面积为AFTER_DISEASE平米。实施前、后病害明细如下：
 
 after_before_disease.xlsx
 
@@ -34,4 +34,4 @@ nostandard_disease.xlsx
 
 #### **三、具体检测路段指标明细表**
 
-all_nostandard_disease.xlsx
+all_disease.xlsx

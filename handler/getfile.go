@@ -9,7 +9,7 @@ import (
 func GetFileHandler(c *gin.Context) {
 	filename := c.Query("name")
 	p, _ := url.QueryUnescape(filename)
-	filename = filepath.Join(reportsBaseDir, p)
+	filename = filepath.Join(ReportsBaseDir, p)
 	c.Header("Content-Disposition", "inline")
 	c.File(filename)
 }

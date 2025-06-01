@@ -12,27 +12,15 @@ import (
 )
 
 func SaveMdHandler(pySuffix string) func(c *gin.Context) {
-	/*
-		todo:
-			1. 先读取output目录下的文件夹
-			2. 根据不同的公路类型，定义不同的结构体（主要是计算指标）
-			3. 调用py程序后，重新读取output目录下的文件夹，找到新增的那个文件夹
-			4. 在新增的那个文件夹中，生成markdown报告
-	*/
 	return func(c *gin.Context) {
-		var req struct {
-			Files      []string `json:"files"`
-			ReportType string   `json:"reportType"`
-			Mileage    float64  `json:"mileage"`
-			PQI        float64  `json:"pqi"`
-		}
+		var req savemdReq
 		if err := c.ShouldBindJSON(&req); err != nil {
 			logger.Logger.Errorf("无效请求: %v", err)
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "请求有误"})
 			return
 		}
 
-		data, reportDirFromCalc, err := calculate(pySuffix, req.ReportType, req.Files, req.PQI, req.Mileage)
+		data, reportDirFromCalc, err := calculate(pySuffix, &req)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "计算失败"})
 			return
@@ -122,8 +110,6 @@ func SaveMdHandler(pySuffix string) func(c *gin.Context) {
 			content = strings.ReplaceAll(content, tableName, markdownTable)
 		}
 
-		//timeStr := strings.Split(reportDirFromCalc, "_")[1]
-		//reportBaseName := fmt.Sprintf("%s_%s", ReportNameMap[req.ReportType], timeStr)
 		images, ok := data[PyRespImagesKey].([]any)
 		if ok {
 			for _, image := range images {

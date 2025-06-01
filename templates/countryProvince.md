@@ -1,10 +1,10 @@
 ## **宁夏公路管理中心监管普通国省干线抽检路段路面技术状况报告**
 
-按照《宁夏公路管理中心效能目标管理（各分中心）考核细则》《公路技术状况评定标准》（JTG 5210-2018）等制度规范，宁夏公路管理中心对GSGYNAME管养普通国省干线进行检测，检测考核结果如下。
+按照《宁夏公路管理中心效能目标管理（各分中心）考核细则》《公路技术状况评定标准》（JTG 5210-2018）等制度规范，宁夏公路管理中心对GYGSNAME管养普通国省干线进行检测，检测考核结果如下。
 
 #### **一、年度指标完成情况**
 
-GSGYNAME管养国省干线总里程为GSGYALLROADLENGTHkm，本次检测路段里程为GSALLCHECKKMkm，完成PQI指标值为GSALLROADPQI，GSZHIBIAO年度下达指标。以下为检测路线路段PQI指标情况：
+GYGSNAME管养国省干线总里程为GSGYALLROADLENGTHkm，本次检测路段里程为GSALLCHECKKMkm，完成PQI指标值为GSALLROADPQI，GSZHIBIAO年度下达指标GSPQIVALUE。以下为检测路线路段PQI指标情况：
 
 最终检测里程汇总.xlsx
 
@@ -16,7 +16,7 @@ GSGYNAME管养国省干线总里程为GSGYALLROADLENGTHkm，本次检测路段�
 
 1.公路网级沥青路面技术状况
 
-经检测，GYNAME管养普通国省干线一级、二级PQI值为ROADWEIGHT12（≥）ROAD12THRESHOLD，三级、四级PQI值为ROADWEIGHT34（≥）ROAD34THRESHOLD，ZHIBIAO_WD3规范要求。
+经检测，GYNAME管养普通国省干线一级、二级PQI值为ROADWEIGHT12（ROAD12FUHAO）ROAD12THRESHOLD，三级、四级PQI值为ROADWEIGHT34（ROAD34FUHAO）ROAD34THRESHOLD，ZHIBIAO_WD3规范要求。
 
 2.每个基本单元沥青路面技术状况
 
@@ -24,47 +24,47 @@ GSGYNAME管养国省干线总里程为GSGYALLROADLENGTHkm，本次检测路段�
 
 一级二级公路：
 
-（1）PQI<ROAD12PQI的路段ROAD12PQILENGTH公里；
+（1）PQI<ROADPQI12的路段ROAD12PQILENGTH公里；
 
 宁夏公路管理中心_pqi12.xlsx
 
 
-（2）PCI<ROAD12PCI的路段ROAD12PCILENGTH公里；
+（2）PCI<ROADPCI12的路段ROAD12PCILENGTH公里；
 
 宁夏公路管理中心_pci12.xlsx
 
 
 
-（3）RQI<ROAD12RQI的路段ROAD12RQILENGTH公里；
+（3）RQI<ROADRQI12的路段ROAD12RQILENGTH公里；
 
 宁夏公路管理中心_rqi12.xlsx
 
 
 
-（4）RDI<ROAD12RDI的路段ROAD12RDILENGTH公里；
+（4）RDI<ROADRDI12的路段ROAD12RDILENGTH公里；
 
 宁夏公路管理中心_rdi12.xlsx
 
 
 三级四级公路：
 
-（1）PQI<ROAD34PQI的路段ROAD34PQILENGTH公里；
+（1）PQI<ROADPQI34的路段ROAD34PQILENGTH公里；
 
 宁夏公路管理中心_pqi34.xlsx
 
-（2）PCI<ROAD34PCI的路段ROAD34PCILENGTH公里；
+（2）PCI<ROADPCI34的路段ROAD34PCILENGTH公里；
 
 宁夏公路管理中心_pci34.xlsx
 
 
-（3）RQI<ROAD34RQI的路段ROAD34RQILENGTH公里；
+（3）RQI<ROADRQI34的路段ROAD34RQILENGTH公里；
 
 宁夏公路管理中心_rqi34.xlsx
 
 
 
 
-3.依据《公路养护技术标准》，本次检测一级二级公路优良路率为 ROAD12EXCELLENTRATE%（≥）ROAD12RATETHRESHOLD%；三级四级公路优良路率为 ROAD34EXCELLENTRATE%（≥）ROAD34RATETHRESHOLD%。rateZHIBIAO 标准要求。
+3.依据《公路养护技术标准》，本次检测一级二级公路优良路率为 ROAD12EXCELLENTRATE%（ROAD12RATEFUHAO）ROAD12RATETHRESHOLD%；三级四级公路优良路率为 ROAD34EXCELLENTRATE%（ROAD34RATEFUHAO）ROAD34RATETHRESHOLD%。RATEZHIBIAO 标准要求。
 
 <center>检测一级二级公路优良路率明细</center>
 
@@ -88,11 +88,11 @@ liqing_disease.xlsx
 
 5.路面有效修补路率
 
-依据《宁夏公路管理中心效能目标管理（各分中心）考核细则》路面病害有效修补率不低于 50%，每下降 1 个点，扣 2 分。
+依据《宁夏公路管理中心效能目标管理（各分中心）考核细则》路面病害有效修补率不低于 50%，实际有效修补路率为GSWEIGHTRATE，每下降 1 个点，扣 2 分。
 
 本次抽检路段路面有效修补路率明细如下：
 
-xiuibu_rate.xlsx
+xiubu_rate.xlsx
 
 
 #### **四、具体抽检路段指标明细表**

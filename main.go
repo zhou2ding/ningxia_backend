@@ -69,12 +69,12 @@ func main() {
 		return
 	}
 	// 创建报告和图片目录
-	for _, dir := range handler.ReportDirs {
-		if err = os.MkdirAll(dir+"/images", 0755); err != nil {
-			logger.Logger.Errorf("创建 %s 目录失败: %v", dir, err)
-			return
-		}
-	}
+	//for _, dir := range handler.ReportDirs {
+	//	if err = os.MkdirAll(dir+"/images", 0755); err != nil {
+	//		logger.Logger.Errorf("创建 %s 目录失败: %v", dir, err)
+	//		return
+	//	}
+	//}
 
 	// 读取已有的报告目录
 	dirs, _ := os.ReadDir(outputsDir)
