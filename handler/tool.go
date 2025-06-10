@@ -140,14 +140,14 @@ func calculate(pySuffix string, req *savemdReq) (map[string]any, string, error) 
 	// 1. 根据 reportType 确定 Python 脚本名称和参数
 	switch req.ReportType {
 	case ReportTypeExpressway:
-		program = "expressway" + pySuffix
+		program = "highway" + pySuffix
 		args = []string{
-			"--root_dir", req.ExpressWay.RootPath,
-			"--maintenance_unit_file", req.ExpressWay.MaintenanceUnitFile,
-			"--km_index_file", req.ExpressWay.KmIndexFile,
-			"--unit_level_file", req.ExpressWay.UnitLevelFile,
-			"--pingding_file", req.ExpressWay.PingdingFile,
-			"--level_file", req.ExpressWay.LevelFile,
+			"--root_dir", "..\\" + req.ExpressWay.RootPath,
+			"--maintenance_unit_file", "..\\" + req.ExpressWay.MaintenanceUnitFile,
+			"--km_index_file", "..\\" + filepath.Join(req.ExpressWay.RootPath, "公里指标汇总报表.xlsx"),
+			"--unit_level_file", "..\\" + req.ExpressWay.UnitLevelFile,
+			"--pingding_file", "..\\" + req.ExpressWay.PingdingFile,
+			"--level_file", "..\\" + req.ExpressWay.LevelFile,
 			"--pqi_valuewd1", fmt.Sprintf("%.3f", req.ExpressWay.PqiValuewd1),
 			"--pqi_valuewd2", fmt.Sprintf("%.3f", req.ExpressWay.PqiValuewd2),
 			"--threshold", fmt.Sprintf("%.3f", req.ExpressWay.Threshold),
@@ -161,20 +161,26 @@ func calculate(pySuffix string, req *savemdReq) (map[string]any, string, error) 
 	case ReportTypeMaintenance:
 		program = "maintain" + pySuffix
 		args = []string{
-			"--maintain_xlsx_file", req.Maintain.MaintainXlsxFile,
-			"--after_root_dir", req.Maintain.AfterRootDir,
-			"--before_root_dir", req.Maintain.BeforeRootDir,
-			"--project_name", req.Maintain.ProjectName,
+			"--maintain_xlsx_file", "..\\" + req.Maintain.MaintainXlsxFile,
+			"--after_root_dir", "..\\" + req.Maintain.AfterRootDir,
+			"--before_root_dir", "..\\" + req.Maintain.BeforeRootDir,
+			"--project_name", "..\\" + req.Maintain.ProjectName,
 		}
 	case ReportTypeConstruction:
 		program = "construction" + pySuffix
+		args = []string{
+			"--maintain_xlsx_file", "..\\" + req.Maintain.MaintainXlsxFile,
+			"--after_root_dir", "..\\" + req.Maintain.AfterRootDir,
+			"--before_root_dir", "..\\" + req.Maintain.BeforeRootDir,
+			"--project_name", "..\\" + req.Maintain.ProjectName,
+		}
 	case ReportTypeRural:
 		program = "rural" + pySuffix
 		args = []string{
-			"--nc_base_dir", req.Rural.NcBaseDir,
-			"--unit_xlsx", req.Rural.UnitXlsx,
-			"--root_dir", req.Rural.RootDir,
-			"--xlsx_file", req.Rural.XlsxFile,
+			"--nc_base_dir", "..\\" + req.Rural.NcBaseDir,
+			"--unit_xlsx", "..\\" + req.Rural.UnitXlsx,
+			"--root_dir", "..\\" + req.Rural.RootDir,
+			"--xlsx_file", "..\\" + req.Rural.XlsxFile,
 			"--gy_value", req.Rural.GyValue,
 			"--pqi_wd1", fmt.Sprintf("%.3f", req.Rural.PqiWd1),
 			"--pqi_12", fmt.Sprintf("%.3f", req.Rural.Pqi12),
@@ -183,12 +189,12 @@ func calculate(pySuffix string, req *savemdReq) (map[string]any, string, error) 
 	case ReportTypeNationalProvincial:
 		program = "national_provincial" + pySuffix
 		args = []string{
-			"--root_path", req.NationalProvince.RootPath,
-			"--xlsx_file", req.NationalProvince.XlsxFile,
-			"--bitumen_folder_path", req.NationalProvince.BitumenFolderPath,
-			"--CICScardata", req.NationalProvince.CICScardata,
-			"--unit_path", req.NationalProvince.UnitPath,
-			"--file_path", req.NationalProvince.FilePath,
+			"--root_path", "..\\" + req.NationalProvince.RootPath,
+			"--xlsx_file", "..\\" + req.NationalProvince.XlsxFile,
+			"--bitumen_folder_path", "..\\" + req.NationalProvince.BitumenFolderPath,
+			"--CICScardata", "..\\" + req.NationalProvince.CICScardata,
+			"--unit_path", "..\\" + req.NationalProvince.UnitPath,
+			"--file_path", "..\\" + req.NationalProvince.FilePath,
 			"--gy_value", req.NationalProvince.GyValue,
 			"--pqi_value", fmt.Sprintf("%.3f", req.NationalProvince.PqiValue),
 			"--wdpqi_12", fmt.Sprintf("%.3f", req.NationalProvince.Wdpqi12),

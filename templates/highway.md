@@ -4,7 +4,7 @@
 
 #### **一、年度指标完成情况**
 
-GLGYNAME经营管理高速公路总里程为GLGYALLROADLENGTHkm，本次检测路段里程为GLALLCHECKKMkm，完成PQI指标值为GLALLROADPQI，GLZHIBIAO年度下达指标。以下为检测路段PQI指标情况：
+GLGYNAME经营管理高速公路总里程为GLGYALLROADLENGTHkm，本次检测路段里程为GLALLCHECKKMkm，完成PQI指标值为GLALLROADPQI，GLZHIBIAO年度下达指标GLPQIVALUE。以下为检测路段PQI指标情况：
 
 bg1.xlsx
 
