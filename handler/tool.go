@@ -148,14 +148,15 @@ func calculate(pySuffix string, req *savemdReq) (map[string]any, string, error) 
 			"--unit_level_file", req.ExpressWay.UnitLevelFile,
 			"--pingding_file", req.ExpressWay.PingdingFile,
 			"--level_file", req.ExpressWay.LevelFile,
-			"--pqi_value", fmt.Sprintf("%.2f", req.ExpressWay.PqiValue),
-			"threshold", fmt.Sprintf("%.2f", req.ExpressWay.Threshold),
-			"--PQI_threshold", fmt.Sprintf("%.2f", req.ExpressWay.PQIThreshold),
-			"--PCI_threshold", fmt.Sprintf("%.2f", req.ExpressWay.PCIThreshold),
-			"--RQI_threshold", fmt.Sprintf("%.2f", req.ExpressWay.RQIThreshold),
-			"--RDI_threshold", fmt.Sprintf("%.2f", req.ExpressWay.RDIThreshold),
-			"--SRI_threshold", fmt.Sprintf("%.2f", req.ExpressWay.SRIThreshold),
-			"danwei", req.ExpressWay.Danwei,
+			"--pqi_valuewd1", fmt.Sprintf("%.3f", req.ExpressWay.PqiValuewd1),
+			"--pqi_valuewd2", fmt.Sprintf("%.3f", req.ExpressWay.PqiValuewd2),
+			"--threshold", fmt.Sprintf("%.3f", req.ExpressWay.Threshold),
+			"--PQI_threshold", fmt.Sprintf("%.3f", req.ExpressWay.PQIThreshold),
+			"--PCI_threshold", fmt.Sprintf("%.3f", req.ExpressWay.PCIThreshold),
+			"--RQI_threshold", fmt.Sprintf("%.3f", req.ExpressWay.RQIThreshold),
+			"--RDI_threshold", fmt.Sprintf("%.3f", req.ExpressWay.RDIThreshold),
+			"--SRI_threshold", fmt.Sprintf("%.3f", req.ExpressWay.SRIThreshold),
+			"--danwei", req.ExpressWay.Danwei,
 		}
 	case ReportTypeMaintenance:
 		program = "maintain" + pySuffix
@@ -175,9 +176,9 @@ func calculate(pySuffix string, req *savemdReq) (map[string]any, string, error) 
 			"--root_dir", req.Rural.RootDir,
 			"--xlsx_file", req.Rural.XlsxFile,
 			"--gy_value", req.Rural.GyValue,
-			"--pqi_wd1", fmt.Sprintf("%.2f", req.Rural.PqiWd1),
-			"--pqi_12", fmt.Sprintf("%.2f", req.Rural.Pqi12),
-			"--pqi_34", fmt.Sprintf("%.2f", req.Rural.Pqi34),
+			"--pqi_wd1", fmt.Sprintf("%.3f", req.Rural.PqiWd1),
+			"--pqi_12", fmt.Sprintf("%.3f", req.Rural.Pqi12),
+			"--pqi_34", fmt.Sprintf("%.3f", req.Rural.Pqi34),
 		}
 	case ReportTypeNationalProvincial:
 		program = "national_provincial" + pySuffix
@@ -189,18 +190,18 @@ func calculate(pySuffix string, req *savemdReq) (map[string]any, string, error) 
 			"--unit_path", req.NationalProvince.UnitPath,
 			"--file_path", req.NationalProvince.FilePath,
 			"--gy_value", req.NationalProvince.GyValue,
-			"--pqi_value", fmt.Sprintf("%.2f", req.NationalProvince.PqiValue),
-			"--wdpqi_12", fmt.Sprintf("%.2f", req.NationalProvince.Wdpqi12),
-			"--wdpqi_34", fmt.Sprintf("%.2f", req.NationalProvince.Wdpqi34),
-			"--pqi_12", fmt.Sprintf("%.2f", req.NationalProvince.Pqi12),
-			"--pci_12", fmt.Sprintf("%.2f", req.NationalProvince.Pci12),
-			"--rqi_12", fmt.Sprintf("%.2f", req.NationalProvince.Rqi12),
-			"--rdi_12", fmt.Sprintf("%.2f", req.NationalProvince.Rdi12),
-			"--pqi_34", fmt.Sprintf("%.2f", req.NationalProvince.Pqi34),
-			"--pci_34", fmt.Sprintf("%.2f", req.NationalProvince.Pci34),
-			"--rqi_34", fmt.Sprintf("%.2f", req.NationalProvince.Rqi34),
-			"--rate_12", fmt.Sprintf("%.2f", req.NationalProvince.Rate12),
-			"--rate_34", fmt.Sprintf("%.2f", req.NationalProvince.Rate34),
+			"--pqi_value", fmt.Sprintf("%.3f", req.NationalProvince.PqiValue),
+			"--wdpqi_12", fmt.Sprintf("%.3f", req.NationalProvince.Wdpqi12),
+			"--wdpqi_34", fmt.Sprintf("%.3f", req.NationalProvince.Wdpqi34),
+			"--pqi_12", fmt.Sprintf("%.3f", req.NationalProvince.Pqi12),
+			"--pci_12", fmt.Sprintf("%.3f", req.NationalProvince.Pci12),
+			"--rqi_12", fmt.Sprintf("%.3f", req.NationalProvince.Rqi12),
+			"--rdi_12", fmt.Sprintf("%.3f", req.NationalProvince.Rdi12),
+			"--pqi_34", fmt.Sprintf("%.3f", req.NationalProvince.Pqi34),
+			"--pci_34", fmt.Sprintf("%.3f", req.NationalProvince.Pci34),
+			"--rqi_34", fmt.Sprintf("%.3f", req.NationalProvince.Rqi34),
+			"--rate_12", fmt.Sprintf("%.3f", req.NationalProvince.Rate12),
+			"--rate_34", fmt.Sprintf("%.3f", req.NationalProvince.Rate34),
 		}
 	default:
 		logger.Logger.Errorf("不支持的报告类型: %v", req.ReportType)
@@ -955,7 +956,7 @@ func addWatermark(pdfBytes []byte, req exportPDFReq) ([]byte, error) {
 	defer rsForWatermarking.Close()
 	cnf := model.NewDefaultConfiguration()
 	cnf.Unit = types.POINTS
-	baseDesc := fmt.Sprintf("points:%d, rotation:%.2f, opacity:%.2f, fillcolor:%s, font:%s", req.WmFontSize, req.WmAngle, req.WmOpacity/100, req.WmColor, UserFont)
+	baseDesc := fmt.Sprintf("points:%d, rotation:%.3f, opacity:%.3f, fillcolor:%s, font:%s", req.WmFontSize, req.WmAngle, req.WmOpacity/100, req.WmColor, UserFont)
 	positions := []string{
 		"pos:tl, off:55 -100", "pos:tr, off:-55 -200",
 		"pos:bl, off:55 250", "pos:br, off:-55 150",

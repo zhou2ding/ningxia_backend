@@ -104,9 +104,11 @@ func main() {
 		report.GET("list", handler.GetReports)
 		report.GET("/view/:filename", handler.ViewMarkdownHandler) //查看md
 		//report.GET("/download/:filename", handler.DownloadWordHandler)   //下载docx
-		report.GET("/export/:filename", handler.ExportReportHandler)     //下载pdf
-		report.DELETE("/:filename", handler.DeleteReportHandler)         // 删除报告
-		report.GET("/extraExport/:filename", handler.ExtraExportHandler) // 特殊导出：年度指标达标情况
+		report.GET("/export/:filename", handler.ExportReportHandler) //下载pdf
+		report.DELETE("/:dirname", handler.DeleteReportHandler)      // 删除报告
+		//report.GET("/extraExport/:filename", handler.ExtraExportHandler) // 特殊导出：年度指标达标情况
+		//report.GET("/:dirname/tables", handler.GetTablesHandler)
+		report.POST("/tables/:dirname", handler.ExportTablesHandler)
 	}
 
 	r.GET("/file", handler.GetFileHandler)

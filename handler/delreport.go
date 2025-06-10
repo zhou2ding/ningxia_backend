@@ -7,21 +7,11 @@ import (
 	"ningxia_backend/pkg/logger"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 func DeleteReportHandler(c *gin.Context) {
-	filename := c.Param("filename")
-
-	lastDotIndex := strings.LastIndex(filename, ".")
-	if lastDotIndex == -1 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的文件名格式"})
-		return
-	}
-	baseName := filename[:lastDotIndex]
-
-	reportDirPath := filepath.Join(ReportsBaseDir, baseName)
-
+	filename := c.Param("dirname")
+	reportDirPath := filepath.Join(ReportsBaseDir, filename)
 	// 删除整个目录及其内容
 	err := os.RemoveAll(reportDirPath)
 	if err != nil {

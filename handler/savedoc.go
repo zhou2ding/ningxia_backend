@@ -78,7 +78,7 @@ func SaveDocxHandler(pySuffix string) func(c *gin.Context) {
 
 		// --- 5. 准备报告目录和基础名称 ---
 		// 报告基础名 (不含扩展名), 例如: 高速公路...报告_1745680397
-		reportBaseName := fmt.Sprintf("%s_%d", ReportNameMap[req.ReportType], req.Timestamp)
+		reportBaseName := fmt.Sprintf("%s_%d", reportNameMap[req.ReportType], req.Timestamp)
 		// 报告目录路径, 例如: ./reports/高速公路...报告_1745680397
 		reportPath := filepath.Join(ReportsBaseDir, reportBaseName)
 		// 报告图片子目录路径

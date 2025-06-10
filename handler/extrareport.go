@@ -40,7 +40,7 @@ func ExtraExportHandler(c *gin.Context) {
 	var reportType string
 	var foundType bool
 	// 优先尝试精确匹配基础报告名部分
-	for rtConst, namePrefix := range ReportNameMap {
+	for rtConst, namePrefix := range reportNameMap {
 		if baseReportNamePart == namePrefix {
 			reportType = rtConst
 			foundType = true
@@ -49,7 +49,7 @@ func ExtraExportHandler(c *gin.Context) {
 	}
 	// 如果精确匹配失败（可能名称包含额外信息？），尝试用目录名前缀匹配
 	if !foundType {
-		for rtConst, namePrefix := range ReportNameMap {
+		for rtConst, namePrefix := range reportNameMap {
 			if strings.HasPrefix(directoryName, namePrefix) {
 				reportType = rtConst
 				foundType = true
@@ -72,7 +72,7 @@ func ExtraExportHandler(c *gin.Context) {
 		ReportTypeNationalProvincial: true, // 普通国省干线
 	}
 	if !allowedTypes[reportType] {
-		errMsg := fmt.Sprintf("报告类型 '%s' (%s) 不支持此额外导出功能", ReportNameMap[reportType], reportType)
+		errMsg := fmt.Sprintf("报告类型 '%s' (%s) 不支持此额外导出功能", reportNameMap[reportType], reportType)
 		logger.Logger.Warnf("尝试为不支持的类型执行额外导出: %s (文件名: %s)", reportType, originalFilename)
 		c.JSON(http.StatusBadRequest, gin.H{"error": errMsg})
 		return

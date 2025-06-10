@@ -22,10 +22,22 @@ const (
 )
 
 var (
-	ReportNameMap = map[string]string{
+	reportNameMap = map[string]string{
 		ReportTypeNationalProvincial: "GSGX",
 		ReportTypeExpressway:         "highway",
 		ReportTypeMaintenance:        "maintain",
+	}
+
+	targetExcelFiles = []string{
+		"excellent_rate.xlsx",
+		"一级公路.xlsx",
+		"二三四级公路.xlsx",
+		"all_disease.xlsx",
+
+		"excellent_rate.csv",
+		"一级公路.csv",
+		"二三四级公路.csv",
+		"all_disease.csv",
 	}
 )
 
@@ -51,7 +63,8 @@ type (
 		UnitLevelFile       string  `json:"unit_level_file"`       // 单位层级明细
 		PingdingFile        string  `json:"pingding_file"`         // CICS车检测数据
 		LevelFile           string  `json:"level_file"`            // 路况技术评定
-		PqiValue            float64 `json:"pqi_value"`             // 公路网级沥青路面PQI
+		PqiValuewd1         float64 `json:"pqi_valuewd1"`          // 公路网级沥青路面PQI
+		PqiValuewd2         float64 `json:"pqi_valuewd2"`          // 公路网级沥青路面PQI
 		Threshold           float64 `json:"threshold"`             // 路面PQI技术等级为优的里程占比
 		PQIThreshold        float64 `json:"PQI_threshold"`         // PQI（一级及二级公路）
 		PCIThreshold        float64 `json:"PCI_threshold"`         // PCI（一级及二级公路）
@@ -99,3 +112,7 @@ type (
 		Rural            *rural            `json:"rural"`
 	}
 )
+
+type exportTablesReq struct {
+	Tables []string `json:"tables"`
+}
