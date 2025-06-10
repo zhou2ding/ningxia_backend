@@ -45,7 +45,7 @@ type (
 		BeforeRootDir    string `json:"before_root_dir"`    // 第一次检测数据
 	}
 	expressWay struct {
-		RootPath            string  `json:"-"`                     // 三位多功能路况快速检测车数据解压后的根路径（tmp/uploads/req-xxx-files/高速数据_extracted）
+		RootPath            string  `json:"root_path"`             // 三位多功能路况快速检测车数据解压后的根路径（tmp/uploads/req-xxx-files/高速数据_extracted）
 		MaintenanceUnitFile string  `json:"maintenance_unit_file"` // 管养单位明细
 		KmIndexFile         string  `json:"-"`                     // 三位多功能路况快速检测车数据（zip）中的公里指标汇总报表
 		UnitLevelFile       string  `json:"unit_level_file"`       // 单位层级明细
@@ -61,17 +61,17 @@ type (
 		Danwei              string  `json:"danwei"`                // 管养单位名称
 	}
 	rural struct {
-		NcBaseDir string  `json:"-"`         // 三位多功能路况快速检测车数据解压后的根路径（tmp/uploads/req-xxx-files/农路_extracted）
-		UnitXlsx  string  `json:"unit_xlsx"` // 单位层级明细
-		RootDir   string  `json:"root_dir"`  // 所有数据总根路径
-		XlsxFile  string  `json:"xlsx_file"` // 管养单位明细
-		GyValue   string  `json:"gy_value"`  // 管养单位名称
-		PqiWd1    float64 `json:"pqi_wd1"`   // 本年度上级交通运输主管部门下达的PQI指标
-		Pqi12     float64 `json:"pqi_12"`    // 公路网级沥青路面PQI（一级及二级公路）
-		Pqi34     float64 `json:"pqi_34"`    // 公路网级沥青路面PQI（三级及四级公路）
+		NcBaseDir string  `json:"nc_base_dir"` // 三位多功能路况快速检测车数据解压后的根路径（tmp/uploads/req-xxx-files/农路_extracted）
+		UnitXlsx  string  `json:"unit_xlsx"`   // 单位层级明细
+		RootDir   string  `json:"root_dir"`    // 所有数据总根路径
+		XlsxFile  string  `json:"xlsx_file"`   // 管养单位明细
+		GyValue   string  `json:"gy_value"`    // 管养单位名称
+		PqiWd1    float64 `json:"pqi_wd1"`     // 本年度上级交通运输主管部门下达的PQI指标
+		Pqi12     float64 `json:"pqi_12"`      // 公路网级沥青路面PQI（一级及二级公路）
+		Pqi34     float64 `json:"pqi_34"`      // 公路网级沥青路面PQI（三级及四级公路）
 	}
 	nationalProvince struct {
-		RootPath          string  `json:"-"`           // 三位多功能路况快速检测车数据解压后的根路径（tmp/uploads/req-xxx-files/国省干线_extracted）
+		RootPath          string  `json:"root_path"`   // 三位多功能路况快速检测车数据解压后的根路径（tmp/uploads/req-xxx-files/国省干线_extracted）
 		XlsxFile          string  `json:"xlsx_file"`   // 管养单位明细
 		BitumenFolderPath string  `json:"-"`           // 上一年病害数据解压后的根路径（tmp/uploads/req-xxx-files/23病害数据_extracted）
 		CICScardata       string  `json:"CICScardata"` // CICS车检测数据

@@ -64,7 +64,7 @@ func UnzipHandler() func(c *gin.Context) {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("解压文件 '%s' 失败", file.Filename)})
 				return
 			}
-			processedFilePathsMap[fieldName] = extractDir
+			processedFilePathsMap[fieldName] = filepath.Join(extractDir, baseName)
 
 			// 解压后删除临时的ZIP文件
 			if err = os.Remove(tempZipPath); err != nil {
