@@ -257,20 +257,16 @@ func calculate(pySuffix string, req *savemdReq) (map[string]any, string, error) 
 	cmd := exec.Command(absExecutablePathInPys, args...)
 	logger.Logger.Infof("准备执行命令: %s %s", cmd.Path, strings.Join(cmd.Args[1:], " "))
 
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
 	// 获取 Python 脚本的合并输出 (stdout + stderr)
-	err = cmd.Run()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
 		exitCode := -1
 		var exitError *exec.ExitError
 		if errors.As(err, &exitError) {
 			exitCode = exitError.ExitCode()
 		}
-		// 由于 stderr 被重定向，我们无法在这里获得 Python 的 traceback
-		logger.Logger.Errorf("Python脚本执行失败 (退出码 %d): %v. (脚本输出已被重定向)", exitCode, err)
-		return nil, "", fmt.Errorf("python脚本执行失败 (退出码 %d) (脚本输出已被重定向): %w", exitCode, err)
+		logger.Logger.Errorf("Python脚本执行失败 (退出码 %d): %v，错误内容：%s", exitCode, err, string(output))
+		return nil, "", fmt.Errorf("python脚本执行失败 (退出码 %d) : %w", exitCode, err)
 	}
 
 	logger.Logger.Info("Python脚本已执行。")
