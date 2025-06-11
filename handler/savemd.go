@@ -33,7 +33,7 @@ func SaveMdHandler(pySuffix string) func(c *gin.Context) {
 		case ReportTypeMaintenance:
 			templateFile = "templates/maintenance.md"
 		case ReportTypeConstruction:
-			templateFile = "templates/maintenance.md"
+			templateFile = "templates/construction.md"
 		case ReportTypeRural:
 			templateFile = "templates/rural.md"
 		case ReportTypeNationalProvincial:

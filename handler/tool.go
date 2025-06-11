@@ -164,7 +164,7 @@ func calculate(pySuffix string, req *savemdReq) (map[string]any, string, error) 
 			"--maintain_xlsx_file", "..\\" + req.Maintain.MaintainXlsxFile,
 			"--after_root_dir", "..\\" + req.Maintain.AfterRootDir,
 			"--before_root_dir", "..\\" + req.Maintain.BeforeRootDir,
-			"--project_name", "..\\" + req.Maintain.ProjectName,
+			"--project_name", req.Maintain.ProjectName,
 		}
 	case ReportTypeConstruction:
 		program = "construction" + pySuffix
@@ -172,7 +172,7 @@ func calculate(pySuffix string, req *savemdReq) (map[string]any, string, error) 
 			"--maintain_xlsx_file", "..\\" + req.Maintain.MaintainXlsxFile,
 			"--after_root_dir", "..\\" + req.Maintain.AfterRootDir,
 			"--before_root_dir", "..\\" + req.Maintain.BeforeRootDir,
-			"--project_name", "..\\" + req.Maintain.ProjectName,
+			"--project_name", req.Maintain.ProjectName,
 		}
 	case ReportTypeRural:
 		program = "rural" + pySuffix
