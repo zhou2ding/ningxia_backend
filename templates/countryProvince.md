@@ -24,42 +24,42 @@ GYGSNAME管养国省干线总里程为GSGYALLROADLENGTHkm，本次检测路段�
 
 一级二级公路：
 
-（1）PQI<ROADPQI12的路段ROAD12PQILENGTH公里；
+（1）PQI＜ROADPQI12的路段ROAD12PQILENGTH公里；
 
-宁夏公路管理中心_pqi12.xlsx
-
-
-（2）PCI<ROADPCI12的路段ROAD12PCILENGTH公里；
-
-宁夏公路管理中心_pci12.xlsx
+pqi12.xlsx
 
 
+（2）PCI＜ROADPCI12的路段ROAD12PCILENGTH公里；
 
-（3）RQI<ROADRQI12的路段ROAD12RQILENGTH公里；
-
-宁夏公路管理中心_rqi12.xlsx
+pci12.xlsx
 
 
 
-（4）RDI<ROADRDI12的路段ROAD12RDILENGTH公里；
+（3）RQI＜ROADRQI12的路段ROAD12RQILENGTH公里；
 
-宁夏公路管理中心_rdi12.xlsx
+rqi12.xlsx
+
+
+
+（4）RDI＜ROADRDI12的路段ROAD12RDILENGTH公里；
+
+rdi12.xlsx
 
 
 三级四级公路：
 
-（1）PQI<ROADPQI34的路段ROAD34PQILENGTH公里；
+（1）PQI＜ROADPQI34的路段ROAD34PQILENGTH公里；
 
-宁夏公路管理中心_pqi34.xlsx
+pqi34.xlsx
 
-（2）PCI<ROADPCI34的路段ROAD34PCILENGTH公里；
+（2）PCI＜ROADPCI34的路段ROAD34PCILENGTH公里；
 
-宁夏公路管理中心_pci34.xlsx
+pci34.xlsx
 
 
-（3）RQI<ROADRQI34的路段ROAD34RQILENGTH公里；
+（3）RQI＜ROADRQI34的路段ROAD34RQILENGTH公里；
 
-宁夏公路管理中心_rqi34.xlsx
+rqi34.xlsx
 
 
 
@@ -68,12 +68,12 @@ GYGSNAME管养国省干线总里程为GSGYALLROADLENGTHkm，本次检测路段�
 
 <center>检测一级二级公路优良路率明细</center>
 
-宁夏公路管理中心_ratetable12.xlsx
+ratetable12.xlsx
 
 
 <center>检测三级四级公路优良路率明细</center>
 
-宁夏公路管理中心_ratetable34.xlsx
+ratetable34.xlsx
 
 
 4.影响行车安全的病害

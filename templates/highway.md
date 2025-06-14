@@ -7,12 +7,19 @@
 GLGYNAME经营管理高速公路总里程为GLGYALLROADLENGTHkm，本次检测路段里程为GLALLCHECKKMkm，完成PQI指标值为GLALLROADPQI，GLZHIBIAO年度下达指标GLPQIVALUE。以下为检测路段PQI指标情况：
 
 bg1.xlsx
+#### **二、与管养单位沥青路面PQI指标自检结果的误差超限比对情况**
 
-#### **二、沥青路面技术状况指标是否达到《沥青路面养护技术规范》等要求**
+按照《宁夏收费公路养护管理监督与考核暂行办法》，本次检测结果中，
+检测优等路YOU_KM公里，△PQI＞3的路段DELTAPQI3_KM公里，检测良等路LIANG_KM公里，
+△PQI＞5的路段DELTAPQI5_KM公里，检测中等路ZHONG_KM公里，△PQI＞8的路段DELTAPQI8_KM公里，
+检测次差等路CICHA_KM公里，△PQI＞15的路段DELTAPQI15_KM公里。超限率OVERLIMITRATE_%，
+路面得分ROADSCORE分。
+
+#### **三、沥青路面技术状况指标是否达到《沥青路面养护技术规范》等要求**
 
 1.公路网级沥青路面技术状况
 
-经检测，UNITNAME经营管理高速公路PQI值WEIGHTPQI（SIGNAL）PQITHRESHOLD_WD2，ZHIBIAO_WD2规范要求。
+经检测，UNITNAME经营管理高速公路PQI值WEIGHTPQI（SIGNAL）PQITHRESHOLD_WD2，PQIWORD2规范要求。
 
 2.每个基本单元沥青路面技术状况
 
@@ -56,8 +63,8 @@ shuini_disease.xlsx
 
 liqing_disease.xlsx
 
-#### **三、具体检测路段指标明细表**
+#### **四、具体检测路段指标明细表**
 
-excellent_rate.xlsx
+alldata.xlsx
 
 注：红色标注处为指标未达标数据。

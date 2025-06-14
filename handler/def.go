@@ -84,25 +84,25 @@ type (
 		Pqi34     float64 `json:"pqi_34"`      // 公路网级沥青路面PQI（三级及四级公路）
 	}
 	nationalProvince struct {
-		RootPath          string  `json:"root_path"`   // 三位多功能路况快速检测车数据解压后的根路径（tmp/uploads/req-xxx-files/国省干线_extracted）
-		XlsxFile          string  `json:"xlsx_file"`   // 管养单位明细
-		BitumenFolderPath string  `json:"-"`           // 上一年病害数据解压后的根路径（tmp/uploads/req-xxx-files/23病害数据_extracted）
-		CICScardata       string  `json:"CICScardata"` // CICS车检测数据
-		UnitPath          string  `json:"unit_path"`   // 单位层级明细
-		FilePath          string  `json:"file_path"`   // 路况技术评定
-		GyValue           string  `json:"gy_value"`    // 管养单位名称
-		PqiValue          float64 `json:"pqi_value"`   // 本年度上级交通运输主管部门下达的PQI指标
-		Wdpqi12           float64 `json:"wdpqi_12"`    // 公路网级沥青路面PQI（一级及二级公路）
-		Wdpqi34           float64 `json:"wdpqi_34"`    // 公路网级沥青路面PQI（三级及四级公路）
-		Pqi12             float64 `json:"pqi_12"`      // PQI（一级及二级公路）
-		Pci12             float64 `json:"pci_12"`      // PCI（一级及二级公路）
-		Rqi12             float64 `json:"rqi_12"`      // RQI（一级及二级公路）
-		Rdi12             float64 `json:"rdi_12"`      // RDI（一级及二级公路）
-		Pqi34             float64 `json:"pqi_34"`      // PQI（三级及四级公路）
-		Pci34             float64 `json:"pci_34"`      // PCI（三级及四级公路）
-		Rqi34             float64 `json:"rqi_34"`      // RQI（三级及四级公路）
-		Rate12            float64 `json:"rate_12"`     // 公路优等路率（一级及二级公路）
-		Rate34            float64 `json:"rate_34"`     // 公路优等路率（三级及四级公路）
+		RootPath          string  `json:"root_path"`           // 三位多功能路况快速检测车数据解压后的根路径（tmp/uploads/req-xxx-files/国省干线_extracted）
+		XlsxFile          string  `json:"xlsx_file"`           // 管养单位明细
+		BitumenFolderPath string  `json:"bitumen_folder_path"` // 上一年病害数据解压后的根路径（tmp/uploads/req-xxx-files/23病害数据_extracted）
+		CICScardata       string  `json:"CICScardata"`         // CICS车检测数据
+		UnitPath          string  `json:"unit_path"`           // 单位层级明细
+		FilePath          string  `json:"file_path"`           // 路况技术评定
+		GyValue           string  `json:"gy_value"`            // 管养单位名称
+		PqiValue          float64 `json:"pqi_value"`           // 本年度上级交通运输主管部门下达的PQI指标
+		Wdpqi12           float64 `json:"wdpqi_12"`            // 公路网级沥青路面PQI（一级及二级公路）
+		Wdpqi34           float64 `json:"wdpqi_34"`            // 公路网级沥青路面PQI（三级及四级公路）
+		Pqi12             float64 `json:"pqi_12"`              // PQI（一级及二级公路）
+		Pci12             float64 `json:"pci_12"`              // PCI（一级及二级公路）
+		Rqi12             float64 `json:"rqi_12"`              // RQI（一级及二级公路）
+		Rdi12             float64 `json:"rdi_12"`              // RDI（一级及二级公路）
+		Pqi34             float64 `json:"pqi_34"`              // PQI（三级及四级公路）
+		Pci34             float64 `json:"pci_34"`              // PCI（三级及四级公路）
+		Rqi34             float64 `json:"rqi_34"`              // RQI（三级及四级公路）
+		Rate12            float64 `json:"rate_12"`             // 公路优等路率（一级及二级公路）
+		Rate34            float64 `json:"rate_34"`             // 公路优等路率（三级及四级公路）
 	}
 	savemdReq struct {
 		ReportType       string            `json:"report_type"`
@@ -112,7 +112,3 @@ type (
 		Rural            *rural            `json:"rural"`
 	}
 )
-
-type exportTablesReq struct {
-	Tables []string `json:"tables"`
-}

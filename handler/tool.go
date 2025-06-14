@@ -813,7 +813,17 @@ h1 {
 	margin-bottom: 24pt;
 	text-indent: 0;
 }
-h2, h3, h4 {
+h2 {
+    font-family: "FangSong_GBK", "SimSun", sans-serif;
+    font-size: 16pt;
+    font-weight: bold;
+    line-height: 28pt;
+    text-align: center; 
+    text-indent: 0;     
+    margin-top: 1.5em;
+    margin-bottom: 1em;
+}
+h3, h4 {
 	font-family: "FangSong_GBK", "SimSun", sans-serif;
 	font-size: 16pt;
 	font-weight: bold;
