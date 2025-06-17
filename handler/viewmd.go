@@ -11,7 +11,7 @@ import (
 
 func ViewMarkdownHandler(c *gin.Context) {
 	filename := c.Param("filename")
-	fileFullName := filepath.Join(ReportsBaseDir, filename[:strings.LastIndex(filename, ".")], filename)
+	fileFullName := filepath.Join(reportsBaseDir, filename[:strings.LastIndex(filename, ".")], filename)
 	content, err := os.ReadFile(fileFullName)
 	if err != nil {
 		logger.Logger.Errorf("读取报告 %s 内容失败: %v", fileFullName, err)

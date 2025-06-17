@@ -80,7 +80,7 @@ func SaveDocxHandler(pySuffix string) func(c *gin.Context) {
 		// 报告基础名 (不含扩展名), 例如: 高速公路...报告_1745680397
 		reportBaseName := fmt.Sprintf("%s_%d", reportNameMap[req.ReportType], req.Timestamp)
 		// 报告目录路径, 例如: ./reports/高速公路...报告_1745680397
-		reportPath := filepath.Join(ReportsBaseDir, reportBaseName)
+		reportPath := filepath.Join(reportsBaseDir, reportBaseName)
 		// 报告图片子目录路径
 		if err = os.MkdirAll(reportPath, 0755); err != nil {
 			logger.Logger.Errorf("创建报告目录 (%s): %v", reportPath, err)
@@ -128,7 +128,7 @@ func SaveDocxHandler(pySuffix string) func(c *gin.Context) {
 		}
 
 		reportFilename := fmt.Sprintf("%s.docx", reportBaseName)
-		reportFileFullName := filepath.Join(ReportsBaseDir, reportBaseName, reportFilename)
+		reportFileFullName := filepath.Join(reportsBaseDir, reportBaseName, reportFilename)
 		if err = docxFile.WriteToFile(reportFileFullName); err != nil {
 			logger.Logger.Errorf("DOCX文档写入失败 (%s): %v", reportPath, err)
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "文档生成失败"})

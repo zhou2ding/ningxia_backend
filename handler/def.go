@@ -4,8 +4,8 @@ const (
 	uploadDir       = "./tmp/uploads"
 	maxFileSize     = 1024 * 1024 * 1024 // 1024MB
 	pdfDir          = "./tmp/pdf"
-	ReportsBaseDir  = "./pys/output" // Base directory for saved reports
-	OutPutDir       = "./output"
+	reportsBaseDir  = "./pys/output" // Base directory for saved reports
+	pyDir           = "./pys"
 	wkhtmltopdfPath = "./wkhtmltox/bin/wkhtmltopdf.exe"
 )
 

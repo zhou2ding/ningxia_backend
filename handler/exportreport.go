@@ -32,9 +32,9 @@ func ExportReportHandler(c *gin.Context) {
 	}
 
 	mdFilename := baseName + ".md"
-	fullFilePath := filepath.Join(ReportsBaseDir, baseName, mdFilename)
+	fullFilePath := filepath.Join(reportsBaseDir, baseName, mdFilename)
 
-	absReportsBaseDir, err := filepath.Abs(ReportsBaseDir)
+	absReportsBaseDir, err := filepath.Abs(reportsBaseDir)
 	if err != nil {
 		logger.Logger.Errorf("无法确定报告目录的绝对路径: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "服务器配置错误 (无法确定报告目录的绝对路径)"})

@@ -19,7 +19,7 @@ func ExportTablesHandler(c *gin.Context) {
 		return
 	}
 	// 2. 构建报告所在目录的完整路径
-	reportDir := filepath.Join(ReportsBaseDir, dirname)
+	reportDir := filepath.Join(reportsBaseDir, dirname)
 	if _, err := os.Stat(reportDir); os.IsNotExist(err) {
 		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("报告目录 '%s' 不存在", dirname)})
 		return

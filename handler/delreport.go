@@ -11,7 +11,7 @@ import (
 
 func DeleteReportHandler(c *gin.Context) {
 	filename := c.Param("dirname")
-	reportDirPath := filepath.Join(ReportsBaseDir, filename)
+	reportDirPath := filepath.Join(reportsBaseDir, filename)
 	// 删除整个目录及其内容
 	err := os.RemoveAll(reportDirPath)
 	if err != nil {

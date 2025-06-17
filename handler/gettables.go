@@ -11,7 +11,7 @@ import (
 
 func GetTablesHandler(c *gin.Context) {
 	filename := c.Param("dirname")
-	reportDirPath := filepath.Join(ReportsBaseDir, filename)
+	reportDirPath := filepath.Join(reportsBaseDir, filename)
 
 	entries, err := os.ReadDir(reportDirPath)
 	if err != nil {

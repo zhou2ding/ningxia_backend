@@ -11,7 +11,7 @@ import (
 func GetReports(c *gin.Context) {
 	//skipDir := filepath.Join("images")
 
-	//err := filepath.Walk(ReportsBaseDir, func(path string, info os.FileInfo, err error) error {
+	//err := filepath.Walk(reportsBaseDir, func(path string, info os.FileInfo, err error) error {
 	//	if err != nil {
 	//		return err
 	//	}
@@ -27,7 +27,7 @@ func GetReports(c *gin.Context) {
 	//})
 
 	reports := make([]string, 0)
-	dirs, err := os.ReadDir(ReportsBaseDir)
+	dirs, err := os.ReadDir(reportsBaseDir)
 	for _, dir := range dirs {
 		reports = append(reports, dir.Name())
 	}

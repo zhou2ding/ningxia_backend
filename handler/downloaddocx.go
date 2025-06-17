@@ -13,7 +13,7 @@ func DownloadWordHandler(c *gin.Context) {
 	fmt.Printf("DEBUG: Received filename parameter: [%s]\n", filename)
 	fmt.Printf("DEBUG: Received filename parameter (bytes): %x\n", []byte(filename))
 
-	fileFullName := filepath.Join(ReportsBaseDir, filename[:strings.LastIndex(filename, ".")], filename)
+	fileFullName := filepath.Join(reportsBaseDir, filename[:strings.LastIndex(filename, ".")], filename)
 	encodedFilename := url.QueryEscape(filename)
 
 	disposition := fmt.Sprintf("attachment; filename=\"%s\"; filename*=UTF-8''%s", filename, encodedFilename)

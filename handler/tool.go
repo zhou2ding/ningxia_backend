@@ -137,17 +137,23 @@ func calculate(pySuffix string, req *savemdReq) (map[string]any, string, error) 
 		args    []string
 	)
 
+	goAppWorkDir, err := os.Getwd() // 获取原始工作目录
+	if err != nil {
+		logger.Logger.Errorf("无法获取原始工作目录: %v", err)
+		return nil, "", err
+	}
+
 	// 1. 根据 reportType 确定 Python 脚本名称和参数
 	switch req.ReportType {
 	case ReportTypeExpressway:
 		program = "highway" + pySuffix
 		args = []string{
-			"--root_dir", "..\\" + req.ExpressWay.RootPath,
-			"--maintenance_unit_file", "..\\" + req.ExpressWay.MaintenanceUnitFile,
-			"--km_index_file", "..\\" + filepath.Join(req.ExpressWay.RootPath, "公里指标汇总报表.xlsx"),
-			"--unit_level_file", "..\\" + req.ExpressWay.UnitLevelFile,
-			"--pingding_file", "..\\" + req.ExpressWay.PingdingFile,
-			"--level_file", "..\\" + req.ExpressWay.LevelFile,
+			"--root_dir", filepath.Join(goAppWorkDir, req.ExpressWay.RootPath),
+			"--maintenance_unit_file", filepath.Join(goAppWorkDir, req.ExpressWay.MaintenanceUnitFile),
+			"--km_index_file", filepath.Join(goAppWorkDir, req.ExpressWay.RootPath, "公里指标汇总报表.xlsx"),
+			"--unit_level_file", filepath.Join(goAppWorkDir, req.ExpressWay.UnitLevelFile),
+			"--pingding_file", filepath.Join(goAppWorkDir, req.ExpressWay.PingdingFile),
+			"--level_file", filepath.Join(goAppWorkDir, req.ExpressWay.LevelFile),
 			"--pqi_valuewd1", fmt.Sprintf("%.3f", req.ExpressWay.PqiValuewd1),
 			"--pqi_valuewd2", fmt.Sprintf("%.3f", req.ExpressWay.PqiValuewd2),
 			"--threshold", fmt.Sprintf("%.3f", req.ExpressWay.Threshold),
@@ -161,26 +167,26 @@ func calculate(pySuffix string, req *savemdReq) (map[string]any, string, error) 
 	case ReportTypeMaintenance:
 		program = "maintain" + pySuffix
 		args = []string{
-			"--maintain_xlsx_file", "..\\" + req.Maintain.MaintainXlsxFile,
-			"--after_root_dir", "..\\" + req.Maintain.AfterRootDir,
-			"--before_root_dir", "..\\" + req.Maintain.BeforeRootDir,
+			"--maintain_xlsx_file", filepath.Join(goAppWorkDir, req.Maintain.MaintainXlsxFile),
+			"--after_root_dir", filepath.Join(goAppWorkDir, req.Maintain.AfterRootDir),
+			"--before_root_dir", filepath.Join(goAppWorkDir, req.Maintain.BeforeRootDir),
 			"--project_name", req.Maintain.ProjectName,
 		}
 	case ReportTypeConstruction:
 		program = "construction" + pySuffix
 		args = []string{
-			"--maintain_xlsx_file", "..\\" + req.Maintain.MaintainXlsxFile,
-			"--after_root_dir", "..\\" + req.Maintain.AfterRootDir,
-			"--before_root_dir", "..\\" + req.Maintain.BeforeRootDir,
+			"--maintain_xlsx_file", filepath.Join(goAppWorkDir, req.Maintain.MaintainXlsxFile),
+			"--after_root_dir", filepath.Join(goAppWorkDir, req.Maintain.AfterRootDir),
+			"--before_root_dir", filepath.Join(goAppWorkDir, req.Maintain.BeforeRootDir),
 			"--project_name", req.Maintain.ProjectName,
 		}
 	case ReportTypeRural:
 		program = "rural" + pySuffix
 		args = []string{
-			"--nc_base_dir", "..\\" + req.Rural.NcBaseDir,
-			"--unit_xlsx", "..\\" + req.Rural.UnitXlsx,
-			"--root_dir", "..\\" + req.Rural.RootDir,
-			"--xlsx_file", "..\\" + req.Rural.XlsxFile,
+			"--nc_base_dir", filepath.Join(goAppWorkDir, req.Rural.NcBaseDir),
+			"--unit_xlsx", filepath.Join(goAppWorkDir, req.Rural.UnitXlsx),
+			"--root_dir", filepath.Join(goAppWorkDir, req.Rural.RootDir),
+			"--xlsx_file", filepath.Join(goAppWorkDir, req.Rural.XlsxFile),
 			"--gy_value", req.Rural.GyValue,
 			"--pqi_wd1", fmt.Sprintf("%.3f", req.Rural.PqiWd1),
 			"--pqi_12", fmt.Sprintf("%.3f", req.Rural.Pqi12),
@@ -189,12 +195,12 @@ func calculate(pySuffix string, req *savemdReq) (map[string]any, string, error) 
 	case ReportTypeNationalProvincial:
 		program = "national_provincial" + pySuffix
 		args = []string{
-			"--root_path", "..\\" + req.NationalProvince.RootPath,
-			"--xlsx_file", "..\\" + req.NationalProvince.XlsxFile,
-			"--bitumen_folder_path", "..\\" + req.NationalProvince.BitumenFolderPath,
-			"--CICScardata", "..\\" + req.NationalProvince.CICScardata,
-			"--unit_path", "..\\" + req.NationalProvince.UnitPath,
-			"--file_path", "..\\" + req.NationalProvince.FilePath,
+			"--root_path", filepath.Join(goAppWorkDir, req.NationalProvince.RootPath),
+			"--xlsx_file", filepath.Join(goAppWorkDir, req.NationalProvince.XlsxFile),
+			"--bitumen_folder_path", filepath.Join(goAppWorkDir, req.NationalProvince.BitumenFolderPath),
+			"--CICScardata", filepath.Join(goAppWorkDir, req.NationalProvince.CICScardata),
+			"--unit_path", filepath.Join(goAppWorkDir, req.NationalProvince.UnitPath),
+			"--file_path", filepath.Join(goAppWorkDir, req.NationalProvince.FilePath),
 			"--gy_value", req.NationalProvince.GyValue,
 			"--pqi_value", fmt.Sprintf("%.3f", req.NationalProvince.PqiValue),
 			"--wdpqi_12", fmt.Sprintf("%.3f", req.NationalProvince.Wdpqi12),
@@ -216,45 +222,20 @@ func calculate(pySuffix string, req *savemdReq) (map[string]any, string, error) 
 
 	logger.Logger.Infof("Python脚本名称: %s", program)
 
-	goAppWorkDir, err := os.Getwd() // 获取原始工作目录
-	if err != nil {
-		logger.Logger.Errorf("无法获取原始工作目录: %v", err)
-		return nil, "", err
-	}
-	// 切换到 pys 目录
-	pysDirForChdir := filepath.Join(goAppWorkDir, "pys") // 确保路径正确
-	if err = os.Chdir(pysDirForChdir); err != nil {
-		logger.Logger.Errorf("os.Chdir 切换到目录 [%s] 失败: %v", pysDirForChdir, err)
-		return nil, "", fmt.Errorf("切换到目录 [%s] 失败: %w", pysDirForChdir, err)
-	}
-
-	// 确保在函数结束时切回原始工作目录
-	defer func() {
-		if err = os.Chdir(goAppWorkDir); err != nil {
-			logger.Logger.Warnf("os.Chdir 切回原始目录 [%s] 失败: %v", goAppWorkDir, err)
-		} else {
-			logger.Logger.Infof("Go程序当前工作目录已恢复到: %s", goAppWorkDir)
-		}
-	}()
-
-	absExecutablePathInPys, err := filepath.Abs(program)
-	if err != nil {
-		logger.Logger.Errorf("无法获取程序 [%s] 在当前目录 [%s] 下的绝对路径: %v", program, pysDirForChdir, err)
-		return nil, "", fmt.Errorf("无法获取程序 [%s] 的绝对路径: %w", program, err)
-	}
-	logger.Logger.Infof("将要执行的程序绝对路径: %s", absExecutablePathInPys)
+	// pys 目录
+	absPysDir := filepath.Join(goAppWorkDir, pyDir, program) // 确保路径正确
+	logger.Logger.Infof("将要执行的程序绝对路径: %s", absPysDir)
 
 	// 2. 获取执行前的目录列表
-	logger.Logger.Infof("扫描基础报告目录 [%s] (执行前)...", OutPutDir)
-	dirsBefore, err := listDirs(OutPutDir)
+	dirsBefore, err := listDirs(reportsBaseDir)
 	if err != nil {
-		logger.Logger.Errorf("无法列出目录 [%s] (执行前): %v", OutPutDir, err)
+		logger.Logger.Errorf("无法列出目录 [%s] (执行前): %v", reportsBaseDir, err)
 		return nil, "", fmt.Errorf("无法列出目录 (执行前): %w", err)
 	}
 	logger.Logger.Debugf("执行前目录列表: %v", dirsBefore)
 
 	// 3. 执行 Python 脚本
-	cmd := exec.Command(absExecutablePathInPys, args...)
+	cmd := exec.Command(absPysDir, args...)
 	logger.Logger.Infof("准备执行命令: %s %s", cmd.Path, strings.Join(cmd.Args[1:], " "))
 
 	// 获取 Python 脚本的合并输出 (stdout + stderr)
@@ -272,10 +253,10 @@ func calculate(pySuffix string, req *savemdReq) (map[string]any, string, error) 
 	logger.Logger.Info("Python脚本已执行。")
 
 	// 4. Python 脚本执行成功，获取执行后的目录列表
-	logger.Logger.Infof("扫描基础报告目录 [%s] (执行后)...", OutPutDir)
-	dirsAfter, err := listDirs(OutPutDir)
+	logger.Logger.Infof("扫描基础报告目录 [%s] (执行后)...", reportsBaseDir)
+	dirsAfter, err := listDirs(reportsBaseDir)
 	if err != nil {
-		logger.Logger.Errorf("无法列出目录 [%s] (执行后): %v", OutPutDir, err)
+		logger.Logger.Errorf("无法列出目录 [%s] (执行后): %v", reportsBaseDir, err)
 		// 脚本可能成功执行了，但我们无法确定输出目录，这是一个问题
 		return nil, "", fmt.Errorf("脚本执行成功但无法列出目录 (执行后): %w", err)
 	}
@@ -290,18 +271,18 @@ func calculate(pySuffix string, req *savemdReq) (map[string]any, string, error) 
 		}
 	}
 	if len(foundNewDirs) == 0 {
-		logger.Logger.Error("Python脚本执行成功，但在基础报告目录 [%s] 中未找到新生成的报告子目录。", OutPutDir)
+		logger.Logger.Error("Python脚本执行成功，但在基础报告目录 [%s] 中未找到新生成的报告子目录。", reportsBaseDir)
 		return nil, "", errors.New("未找到新生成的报告目录")
 	}
 	if len(foundNewDirs) > 1 {
 		// 如果发现多个新目录，可能意味着并发问题或脚本行为超出预期。
-		logger.Logger.Warnf("在基础报告目录 [%s] 中发现多个新生成的报告子目录: %v。将使用第一个: %s", OutPutDir, foundNewDirs, foundNewDirs[0])
+		logger.Logger.Warnf("在基础报告目录 [%s] 中发现多个新生成的报告子目录: %v。将使用第一个: %s", reportsBaseDir, foundNewDirs, foundNewDirs[0])
 	}
 	newReportDirName = foundNewDirs[0]
 	logger.Logger.Infof("检测到新生成的报告目录名: %s", newReportDirName)
 
 	// 6. 构建 output.json 的完整路径并读取内容
-	jsonResultFilePath := filepath.Join(OutPutDir, newReportDirName, "output.json")
+	jsonResultFilePath := filepath.Join(reportsBaseDir, newReportDirName, "output.json")
 	logger.Logger.Infof("尝试读取JSON结果文件: %s", jsonResultFilePath)
 
 	jsonFileContent, err := os.ReadFile(jsonResultFilePath)
@@ -319,7 +300,7 @@ func calculate(pySuffix string, req *savemdReq) (map[string]any, string, error) 
 	}
 	logger.Logger.Infof("成功从 [%s] 解析报告数据。", jsonResultFilePath)
 
-	return data, filepath.Join(ReportsBaseDir, newReportDirName), nil
+	return data, filepath.Join(reportsBaseDir, newReportDirName), nil
 }
 
 func extractTimestamp(dirName string) int64 {
