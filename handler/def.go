@@ -29,12 +29,12 @@ var (
 	}
 
 	targetExcelFiles = []string{
-		"excellent_rate.xlsx",
+		"alldata.xlsx",
 		"一级公路.xlsx",
 		"二三四级公路.xlsx",
 		"all_disease.xlsx",
 
-		"excellent_rate.csv",
+		"alldata.csv",
 		"一级公路.csv",
 		"二三四级公路.csv",
 		"all_disease.csv",
