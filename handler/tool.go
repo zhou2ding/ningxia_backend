@@ -1009,6 +1009,12 @@ p {
 	text-indent: 2em;
 	margin: 0 0 8pt 0;
 }
+
+tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+}
+
 table {
 	border-collapse: collapse;
 	width: 14.64cm;
