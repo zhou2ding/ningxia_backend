@@ -97,7 +97,7 @@ func SaveMdHandler(pySuffix string) func(c *gin.Context) {
 		for _, tableName := range tableNamesFromJSON {
 			tableXlsxFilePath := filepath.Join(reportDirFromCalc, tableName)
 
-			markdownTable, err := convertExcelToMarkdown(tableXlsxFilePath)
+			markdownTable, err := processExcelFile(tableXlsxFilePath)
 			if err != nil {
 				logger.Logger.Errorf("处理Excel表格 '%s' 失败: %v", tableXlsxFilePath, err)
 				// 在报告中标记表格加载失败，而不是让整个过程失败

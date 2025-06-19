@@ -13,6 +13,7 @@ import (
 	"github.com/xuri/excelize/v2"
 	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/transform"
+	"gorm.io/gorm/utils"
 	"html"
 	"io"
 	"log"
@@ -319,7 +320,7 @@ func extractTimestamp(dirName string) int64 {
 	return timestamp.Unix()
 }
 
-func oldConvertExcelToMarkdown(filePath string) (string, error) {
+func convertExcelToMarkdown(filePath string) (string, error) {
 	f, err := excelize.OpenFile(filePath)
 	if err != nil {
 		return "", fmt.Errorf("无法打开Excel文件 '%s': %w", filePath, err)
@@ -508,7 +509,7 @@ func oldConvertExcelToMarkdown(filePath string) (string, error) {
 		return htmlTable.String(), nil
 	}
 
-	// --- 否则，生成Markdown表格 (现有逻辑) ---
+	// --- 否则，生成Markdown表格 ---
 	logger.Logger.Infof("文件 '%s' 未检测到 '加权' 列或不满足合并条件，将生成 Markdown 表格。", filePath)
 	var mdTable strings.Builder
 	// 2. Build Markdown table header
@@ -597,56 +598,49 @@ func oldConvertExcelToMarkdown(filePath string) (string, error) {
 	return mdTable.String(), nil
 }
 
-// 读取一个Excel文件，返回一个格式化的表格字符串，并根据该格式创建一个新的、结构相同的Excel文件。
-// 完整流程:
-// 1. 读取并完整分析原始Excel文件（在内存中）。
-// 2. 将原始文件重命名，添加 "_origin" 后缀作为备份。
-// 3. 创建一个全新的、与原始文件同名的Excel文件。
-// 4. 将分析后的数据（已过滤列、带红色背景样式、带单元格合并逻辑）逐个单元格写入这个新创建的文件中。
-// 5. 同时，基于同样的分析结果，生成一个内容和格式完全一致的Markdown或HTML字符串，并作为函数返回值。
-func convertExcelToMarkdown(filePath string) (string, error) {
-	// --- 步骤 1: 读取并分析原始Excel ---
+func processExcelFile(filePath string) (string, error) {
+	// --- 1. 打开并读取Excel文件 ---
 	f, err := excelize.OpenFile(filePath)
 	if err != nil {
 		return "", fmt.Errorf("无法打开Excel文件 '%s': %w", filePath, err)
 	}
+	// 注意：这里的 defer close 是一个保障，但在后续的文件重命名操作前，我们会手动关闭它。
+	defer func() {
+		if err = f.Close(); err != nil {
+			log.Printf("警告：关闭Excel文件 '%s' 失败: %v", filePath, err)
+		}
+	}()
 
+	// --- 2. 获取工作表和行数据 ---
 	sheetList := f.GetSheetList()
 	if len(sheetList) == 0 {
-		_ = f.Close()
 		return "", fmt.Errorf("excel文件 '%s' 中没有工作表", filePath)
 	}
-	sheetName := sheetList[0] // 只处理第一个工作表
+	sheetName := sheetList[0] // 仅处理第一个工作表
 
 	rows, err := f.GetRows(sheetName)
 	if err != nil {
-		_ = f.Close()
-		return "", fmt.Errorf("无法从工作表 '%s' 读取行数据: %w", sheetName, err)
+		return "", fmt.Errorf("无法从工作表 '%s' (文件 '%s') 读取行数据: %w", sheetName, filePath, err)
 	}
 
-	// 读取完毕，立即关闭文件，以便后续重命名
-	if err := f.Close(); err != nil {
-		logger.Logger.Errorf("关闭原始Excel文件 '%s' 失败: %v", filePath, err)
-	}
-
-	// --- 步骤 2: 在内存中完整分析数据结构 (表头、高亮、加权等) ---
 	if len(rows) == 0 {
-		logger.Logger.Infof("Excel文件 '%s' 的工作表 '%s' 为空。", filePath, sheetName)
-		return "", nil // 空工作表
+		log.Printf("信息：Excel文件 '%s' 的工作表 '%s' 为空。", filePath, sheetName)
+		return "", nil // 空工作表，直接返回
 	}
+
 	header := rows[0]
 	if len(header) == 0 {
-		logger.Logger.Infof("Excel文件 '%s' 的工作表 '%s' 表头行为空。", filePath, sheetName)
-		return "", nil // 空表头
+		log.Printf("信息：Excel文件 '%s' 的工作表 '%s' 表头行为空。", filePath, sheetName)
+		return "", nil // 空表头，直接返回
 	}
 
+	// --- 3. 解析表头，识别需显示的列、高亮逻辑和特殊列（如“加权”） ---
 	var displayHeaderNames []string
 	var displayColOriginalIndices []int
-	highlightLogic := make(map[int]int) // 键: 数据列索引, 值: 其 "_合格" 列索引
-
-	var hasWeightedColumn bool = false
-	var weightedColumnDisplayIndex int = -1       // 在 displayHeaderNames 中的索引
-	var weightedColumnOriginalExcelIndex int = -1 // 在原始Excel表头中的索引
+	highlightLogic := make(map[int]int)
+	hasWeightedColumn := false
+	weightedColumnDisplayIndex := -1
+	weightedColumnOriginalExcelIndex := -1
 
 	for i, cellName := range header {
 		trimmedCellName := strings.TrimSpace(cellName)
@@ -666,205 +660,282 @@ func convertExcelToMarkdown(filePath string) (string, error) {
 	}
 
 	if len(displayHeaderNames) == 0 {
-		logger.Logger.Infof("解析后，Excel文件 '%s' 没有可显示的列。", filePath)
+		log.Printf("信息：解析后，Excel文件 '%s' 没有可显示的列。", filePath)
 		return "", nil
 	}
 
-	// 如果数据行数不足，则取消加权合并的特殊处理
 	if hasWeightedColumn && (len(rows)-1 < 2) {
-		logger.Logger.Infof("文件 '%s' 的'加权'列数据行数少于2行 (%d)，不执行单元格合并。", filePath, len(rows)-1)
+		log.Printf("信息：文件 '%s' 的'加权'列数据行数少于2行 (%d)，不执行单元格合并。", filePath, len(rows)-1)
 		hasWeightedColumn = false
 	}
 
-	// --- 步骤 3: 重命名旧文件，并创建新的Excel文件对象 ---
-	dir := filepath.Dir(filePath)
-	ext := filepath.Ext(filePath)
-	base := strings.TrimSuffix(filepath.Base(filePath), ext)
-	originFilePath := filepath.Join(dir, base+"_origin"+ext)
-
-	if err := os.Rename(filePath, originFilePath); err != nil {
-		return "", fmt.Errorf("无法将原始文件重命名为 '%s': %w", originFilePath, err)
+	// --- 4. 生成Markdown或HTML字符串 (此任务对所有文件都执行) ---
+	var resultString string
+	if hasWeightedColumn {
+		log.Printf("信息：文件 '%s' 检测到 '加权' 列，将生成 HTML 表格。", filePath)
+		resultString = generateHtmlTable(rows, displayHeaderNames, displayColOriginalIndices, highlightLogic, weightedColumnDisplayIndex, weightedColumnOriginalExcelIndex)
+	} else {
+		log.Printf("信息：文件 '%s' 未检测到 '加权' 列或不满足合并条件，将生成 Markdown 表格。", filePath)
+		resultString = generateMarkdownTable(rows, displayHeaderNames, displayColOriginalIndices, highlightLogic)
 	}
-	logger.Logger.Infof("原始文件已成功重命名为: %s", originFilePath)
 
-	newF := excelize.NewFile()
-	newSheetName := newF.GetSheetName(0)
+	// --- 5. 检查是否为目标文件，如果是，则执行额外的文件创建和替换任务 ---
+	fileName := filepath.Base(filePath)
+	if utils.Contains(targetExcelFiles, fileName) {
+		log.Printf("信息：文件 '%s' 是目标文件，将额外生成新的带样式Excel文件进行替换。", filePath)
 
-	// 创建需要在新Excel中使用的红色背景样式
-	redStyle, err := newF.NewStyle(&excelize.Style{
-		Fill: excelize.Fill{Type: "pattern", Color: []string{"#D32F2F"}, Pattern: 1},
+		// 在进行文件操作前，先关闭已打开的文件句柄
+		if err = f.Close(); err != nil {
+			// 即便关闭失败也只记录日志，因为后续操作可能仍需进行
+			log.Printf("警告：在创建新Excel前关闭原始文件 '%s' 失败: %v", filePath, err)
+		}
+
+		// 调用辅助函数来完成文件创建、保存和重命名
+		err = createNewStyledExcelAndRename(filePath, rows, displayHeaderNames, displayColOriginalIndices, highlightLogic, hasWeightedColumn, weightedColumnDisplayIndex, weightedColumnOriginalExcelIndex)
+		if err != nil {
+			// 如果创建新Excel文件失败，将错误返回，同时返回已经生成好的Markdown/HTML字符串
+			return resultString, fmt.Errorf("为目标文件 '%s' 创建新Excel时失败: %w", fileName, err)
+		}
+		log.Printf("信息：已成功为目标文件 '%s' 创建并替换了新的Excel文件。", fileName)
+	}
+
+	// --- 6. 返回最终结果 ---
+	return resultString, nil
+}
+
+// 封装了创建、样式化、保存和重命名新Excel文件的完整逻辑。
+func createNewStyledExcelAndRename(
+	originalFilePath string,
+	rows [][]string,
+	displayHeaderNames []string,
+	displayColOriginalIndices []int,
+	highlightLogic map[int]int,
+	hasWeightedColumn bool,
+	weightedColumnDisplayIndex int,
+	weightedColumnOriginalExcelIndex int,
+) error {
+
+	// 创建一个新的Excel工作簿
+	newExcel := excelize.NewFile()
+	newSheetName := "处理结果"
+	//_ = newExcel.SetSheetName("Sheet1", newSheetName)
+	index, err := newExcel.NewSheet(newSheetName)
+	if err != nil {
+		return fmt.Errorf("为新Excel创建工作表 '%s' 失败: %w", newSheetName, err)
+	}
+	newExcel.SetActiveSheet(index)
+	_ = newExcel.DeleteSheet("Sheet1")
+
+	// 定义样式
+	redStyle, err := newExcel.NewStyle(&excelize.Style{
+		Fill:      excelize.Fill{Type: "pattern", Color: []string{"#D32F2F"}, Pattern: 1},
+		Font:      &excelize.Font{Color: "FFFFFF"},
+		Alignment: &excelize.Alignment{Vertical: "center", Horizontal: "center", WrapText: true},
 	})
 	if err != nil {
-		logger.Logger.Errorf("创建Excel红色样式失败: %v", err)
+		return fmt.Errorf("创建红色Excel样式失败: %w", err)
+	}
+	normalStyle, err := newExcel.NewStyle(&excelize.Style{
+		Alignment: &excelize.Alignment{Vertical: "center", Horizontal: "center", WrapText: true},
+	})
+	if err != nil {
+		return fmt.Errorf("创建普通Excel样式失败: %w", err)
 	}
 
-	// --- 步骤 4: 将处理后的数据逐行逐列写入新的Excel文件 ---
-
-	// 4.1 写入表头
-	for c, headerName := range displayHeaderNames {
-		cellAddress, _ := excelize.CoordinatesToCellName(c+1, 1)
-		newF.SetCellValue(newSheetName, cellAddress, headerName)
+	// 写入表头
+	for i, name := range displayHeaderNames {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
+		_ = newExcel.SetCellValue(newSheetName, cell, name)
 	}
 
-	// 4.2 写入数据行
-	for r, excelRow := range rows {
-		if r == 0 {
-			continue
-		} // 跳过表头行
-		excelRowIndex := r + 1
-
-		for c, dataColOriginalIdx := range displayColOriginalIndices {
-			excelColIndex := c + 1
-			cellAddress, _ := excelize.CoordinatesToCellName(excelColIndex, excelRowIndex)
-
+	// 写入数据行
+	for r := 1; r < len(rows); r++ {
+		excelRow := rows[r]
+		newRowIndex := r + 1
+		for cIdx, dataColOriginalExcelIdx := range displayColOriginalIndices {
 			cellValue := ""
-			if dataColOriginalIdx < len(excelRow) {
-				cellValue = strings.TrimSpace(excelRow[dataColOriginalIdx])
+			if dataColOriginalExcelIdx < len(excelRow) {
+				cellValue = excelRow[dataColOriginalExcelIdx]
 			}
+			cellValue = strings.TrimSpace(whitespaceRegex.ReplaceAllString(cellValue, ","))
+			processedCellContent := strings.ReplaceAll(strings.Trim(cellValue, ","), ",", "\n")
 
-			// 处理加权列的合并逻辑
-			if hasWeightedColumn && c == weightedColumnDisplayIndex {
-				if excelRowIndex == 2 { // 只在遇到第一行数据时，一次性处理合并和写值
-					weightedValue := ""
-					if weightedColumnOriginalExcelIndex < len(rows[1]) {
-						weightedValue = strings.TrimSpace(rows[1][weightedColumnOriginalExcelIndex])
-					}
-					newF.SetCellValue(newSheetName, cellAddress, weightedValue)
+			applyRedBackground := checkHighlight(excelRow, dataColOriginalExcelIdx, highlightLogic)
 
-					// 合并单元格，从当前单元格到最后一行的同一列
-					endCellAddress, _ := excelize.CoordinatesToCellName(excelColIndex, len(rows))
-					if err := newF.MergeCell(newSheetName, cellAddress, endCellAddress); err != nil {
-						logger.Logger.Errorf("合并单元格 %s 到 %s 失败: %v", cellAddress, endCellAddress, err)
-					}
-				}
-				// 对于其他行，此单元格因被合并而存在，无需任何操作
+			cellName, _ := excelize.CoordinatesToCellName(cIdx+1, newRowIndex)
+			_ = newExcel.SetCellValue(newSheetName, cellName, processedCellContent)
+
+			if applyRedBackground {
+				_ = newExcel.SetCellStyle(newSheetName, cellName, cellName, redStyle)
 			} else {
-				// 写入普通单元格的值
-				newF.SetCellValue(newSheetName, cellAddress, cellValue)
-			}
-
-			// 检查是否需要应用高亮样式
-			applyRedBackground := false
-			if qualifierColIdx, needsHighlight := highlightLogic[dataColOriginalIdx]; needsHighlight {
-				if qualifierColIdx < len(excelRow) && strings.ToUpper(strings.TrimSpace(excelRow[qualifierColIdx])) == "FALSE" {
-					applyRedBackground = true
-				}
-			}
-			if applyRedBackground && redStyle > 0 { // redStyle > 0 确保样式已成功创建
-				if err := newF.SetCellStyle(newSheetName, cellAddress, cellAddress, redStyle); err != nil {
-					logger.Logger.Errorf("为单元格 %s 应用样式失败: %v", cellAddress, err)
-				}
+				_ = newExcel.SetCellStyle(newSheetName, cellName, cellName, normalStyle)
 			}
 		}
 	}
 
-	// 4.3 保存新创建的Excel文件
-	if err := newF.SaveAs(filePath); err != nil {
-		return "", fmt.Errorf("无法保存新的Excel文件 '%s': %w", filePath, err)
-	}
-	_ = newF.Close()
-	logger.Logger.Infof("成功创建包含格式化数据的新文件: %s", filePath)
-
-	// --- 步骤 5: 生成并返回与新Excel文件内容一致的Markdown/HTML字符串 ---
-	var finalTableString string
-
+	// 合并“加权”列
 	if hasWeightedColumn {
-		// --- 生成HTML表格字符串 ---
-		var htmlTable strings.Builder
-		htmlTable.WriteString("<table>\n")
-		htmlTable.WriteString("  <thead>\n    <tr>\n")
-		for _, name := range displayHeaderNames {
-			htmlTable.WriteString("      <th>" + html.EscapeString(name) + "</th>\n")
-		}
-		htmlTable.WriteString("    </tr>\n  </thead>\n")
-		htmlTable.WriteString("  <tbody>\n")
-
-		var weightedValueProcessed string
-		if weightedColumnOriginalExcelIndex < len(rows[1]) {
-			weightedValueProcessed = html.EscapeString(strings.TrimSpace(rows[1][weightedColumnOriginalExcelIndex]))
-		}
-
-		for r := 1; r < len(rows); r++ {
-			excelRow := rows[r]
-			htmlTable.WriteString("    <tr>\n")
-			for cIdx, dataColOriginalExcelIdx := range displayColOriginalIndices {
-				cellValue := ""
-				if dataColOriginalExcelIdx < len(excelRow) {
-					cellValue = strings.TrimSpace(excelRow[dataColOriginalExcelIdx])
-				}
-				processedCellContent := html.EscapeString(strings.ReplaceAll(cellValue, "|", "\\|"))
-
-				applyRedBackground := false
-				if qualifierColIdx, ok := highlightLogic[dataColOriginalExcelIdx]; ok {
-					if qualifierColIdx < len(excelRow) && strings.ToUpper(strings.TrimSpace(excelRow[qualifierColIdx])) == "FALSE" {
-						applyRedBackground = true
-					}
-				}
-
-				style := ""
-				if applyRedBackground {
-					style = ` style="background-color: #D32F2F; color: white; padding: 2px 4px;"`
-				}
-
-				if cIdx == weightedColumnDisplayIndex {
-					if r == 1 { // 只在第一行数据输出这个单元格，并设置rowspan
-						numDataRows := len(rows) - 1
-						htmlTable.WriteString(fmt.Sprintf(`      <td rowspan="%d"%s>%s</td>%s`, numDataRows, style, weightedValueProcessed, "\n"))
-					}
-				} else {
-					htmlTable.WriteString(fmt.Sprintf("      <td%s>%s</td>\n", style, processedCellContent))
-				}
+		numDataRows := len(rows) - 1
+		if numDataRows > 0 {
+			startCell, _ := excelize.CoordinatesToCellName(weightedColumnDisplayIndex+1, 2)
+			endCell, _ := excelize.CoordinatesToCellName(weightedColumnDisplayIndex+1, numDataRows+1)
+			if err = newExcel.MergeCell(newSheetName, startCell, endCell); err != nil {
+				log.Printf("警告：合并“加权”列单元格失败: %v", err)
 			}
-			htmlTable.WriteString("    </tr>\n")
-		}
-		htmlTable.WriteString("  </tbody>\n")
-		htmlTable.WriteString("</table>\n")
-		finalTableString = htmlTable.String()
-	} else {
-		// --- 生成Markdown表格字符串 ---
-		var mdTable strings.Builder
-		mdTable.WriteString("|")
-		for _, name := range displayHeaderNames {
-			mdTable.WriteString(" " + strings.ReplaceAll(name, "|", "\\|") + " |")
-		}
-		mdTable.WriteString("\n")
-
-		mdTable.WriteString("|")
-		for range displayHeaderNames {
-			mdTable.WriteString("---|")
-		}
-		mdTable.WriteString("\n")
-
-		for r := 1; r < len(rows); r++ {
-			excelRow := rows[r]
-			mdTable.WriteString("|")
-			for _, dataColIdx := range displayColOriginalIndices {
-				cellValue := ""
-				if dataColIdx < len(excelRow) {
-					cellValue = strings.TrimSpace(excelRow[dataColIdx])
-				}
-				processedCellContent := strings.ReplaceAll(cellValue, "|", "\\|")
-
-				applyRedBackground := false
-				if qualifierColIdx, ok := highlightLogic[dataColIdx]; ok {
-					if qualifierColIdx < len(excelRow) && strings.ToUpper(strings.TrimSpace(excelRow[qualifierColIdx])) == "FALSE" {
-						applyRedBackground = true
-					}
-				}
-
-				if applyRedBackground {
-					cellValueFormatted := fmt.Sprintf(`<span style="background-color: #D32F2F; color: white; padding: 2px 4px;">%s</span>`, processedCellContent)
-					mdTable.WriteString(" " + cellValueFormatted + " |")
-				} else {
-					mdTable.WriteString(" " + processedCellContent + " |")
-				}
+			if weightedColumnOriginalExcelIndex < len(rows[1]) {
+				_ = newExcel.SetCellValue(newSheetName, startCell, strings.TrimSpace(rows[1][weightedColumnOriginalExcelIndex]))
 			}
-			mdTable.WriteString("\n")
 		}
-		finalTableString = mdTable.String()
 	}
 
-	return finalTableString, nil
+	ext := filepath.Ext(originalFilePath)
+	baseName := strings.TrimSuffix(originalFilePath, ext) // path/to/all_disease
+	tempFilePath := baseName + "_tmp" + ext
+	if err = newExcel.SaveAs(tempFilePath); err != nil {
+		return fmt.Errorf("无法保存临时的Excel文件 '%s': %w", tempFilePath, err)
+	}
+	originBackupPath := baseName + "_origin" + ext // path/to/all_disease_origin.xlsx
+
+	if err = os.Rename(originalFilePath, originBackupPath); err != nil {
+		_ = os.Remove(tempFilePath) // 清理临时文件
+		return fmt.Errorf("无法将原始文件重命名为 '%s': %w", originBackupPath, err)
+	}
+
+	if err = os.Rename(tempFilePath, originalFilePath); err != nil {
+		// 尝试恢复原始文件名，以减少破坏性
+		_ = os.Rename(originBackupPath, originalFilePath)
+		return fmt.Errorf("无法将临时文件重命名为 '%s': %w。已尝试恢复原始文件名。", originalFilePath, err)
+	}
+
+	return nil
+}
+
+// 是一个辅助函数，用于生成HTML格式的表格字符串。
+func generateHtmlTable(rows [][]string, displayHeaderNames []string, displayColOriginalIndices []int, highlightLogic map[int]int, weightedColumnDisplayIndex int, weightedColumnOriginalExcelIndex int) string {
+	var htmlTable strings.Builder
+	htmlTable.WriteString("<table>\n")
+	htmlTable.WriteString("  <thead>\n    <tr>\n")
+	for _, name := range displayHeaderNames {
+		htmlTable.WriteString("      <th>" + html.EscapeString(name) + "</th>\n")
+	}
+	htmlTable.WriteString("    </tr>\n  </thead>\n")
+	htmlTable.WriteString("  <tbody>\n")
+	var weightedValueProcessed string
+	if len(rows) > 1 && weightedColumnOriginalExcelIndex < len(rows[1]) {
+		rawValue := strings.TrimSpace(rows[1][weightedColumnOriginalExcelIndex])
+		processed := strings.Trim(whitespaceRegex.ReplaceAllString(rawValue, ","), ",")
+		weightedValueProcessed = html.EscapeString(strings.ReplaceAll(processed, "|", "\\|"))
+	}
+
+	for r := 1; r < len(rows); r++ {
+		excelRow := rows[r]
+		htmlTable.WriteString("    <tr>\n")
+		for cIdx, dataColOriginalExcelIdx := range displayColOriginalIndices {
+			cellValue := ""
+			if dataColOriginalExcelIdx < len(excelRow) {
+				cellValue = excelRow[dataColOriginalExcelIdx]
+			}
+			processedCellContent := processCellContentForDisplay(cellValue, true)
+			style := ""
+			if checkHighlight(excelRow, dataColOriginalExcelIdx, highlightLogic) {
+				style = ` style="background-color: #D32F2F; color: white; padding: 2px 4px;"`
+			}
+			if cIdx == weightedColumnDisplayIndex {
+				if r == 1 {
+					htmlTable.WriteString(fmt.Sprintf(`      <td rowspan="%d"%s>%s</td>%s`, len(rows)-1, style, weightedValueProcessed, "\n"))
+				}
+			} else {
+				htmlTable.WriteString(fmt.Sprintf("      <td%s>%s</td>\n", style, processedCellContent))
+			}
+		}
+		htmlTable.WriteString("    </tr>\n")
+	}
+	htmlTable.WriteString("  </tbody>\n</table>\n")
+	return htmlTable.String()
+}
+
+// 用于生成Markdown格式的表格字符串。
+func generateMarkdownTable(rows [][]string, displayHeaderNames []string, displayColOriginalIndices []int, highlightLogic map[int]int) string {
+	var mdTable strings.Builder
+	mdTable.WriteString("|")
+	for _, name := range displayHeaderNames {
+		mdTable.WriteString(" " + strings.ReplaceAll(name, "|", "\\|") + " |")
+	}
+	mdTable.WriteString("\n|")
+	for range displayHeaderNames {
+		mdTable.WriteString("---|")
+	}
+	mdTable.WriteString("\n")
+
+	for r := 1; r < len(rows); r++ {
+		excelRow := rows[r]
+		mdTable.WriteString("|")
+		for _, dataColIdx := range displayColOriginalIndices {
+			cellValue := ""
+			if dataColIdx < len(excelRow) {
+				cellValue = excelRow[dataColIdx]
+			}
+			processedCellContent := processCellContentForDisplay(cellValue, false)
+			if checkHighlight(excelRow, dataColIdx, highlightLogic) {
+				mdTable.WriteString(fmt.Sprintf(` <span style="background-color: #D32F2F; color: white; padding: 2px 4px;">%s</span> |`, processedCellContent))
+			} else {
+				mdTable.WriteString(" " + processedCellContent + " |")
+			}
+		}
+		mdTable.WriteString("\n")
+	}
+	return mdTable.String()
+}
+
+// 清理和格式化单元格内容，用于最终显示。
+func processCellContentForDisplay(cellValue string, isHTML bool) string {
+	cellValue = strings.TrimSpace(cellValue)
+	if cellValue == "" {
+		return ""
+	}
+	cellValue = strings.Trim(whitespaceRegex.ReplaceAllString(cellValue, ","), ",")
+	if strings.Contains(cellValue, ",") {
+		parts := strings.Split(cellValue, ",")
+		var lines []string
+		for i := 0; i < len(parts); i += 6 {
+			end := i + 6
+			if end > len(parts) {
+				end = len(parts)
+			}
+			chunk := parts[i:end]
+			var sanitizedChunk []string
+			for _, p := range chunk {
+				if trimmedPart := strings.TrimSpace(p); trimmedPart != "" {
+					sanitizedPart := strings.ReplaceAll(trimmedPart, "|", "\\|")
+					if isHTML {
+						sanitizedPart = html.EscapeString(sanitizedPart)
+					}
+					sanitizedChunk = append(sanitizedChunk, sanitizedPart)
+				}
+			}
+			if len(sanitizedChunk) > 0 {
+				lines = append(lines, strings.Join(sanitizedChunk, ","))
+			}
+		}
+		return strings.Join(lines, "<br>")
+	}
+	processed := strings.ReplaceAll(cellValue, "|", "\\|")
+	if isHTML {
+		processed = html.EscapeString(processed)
+	}
+	return processed
+}
+
+// 检查给定单元格是否需要高亮。
+func checkHighlight(excelRow []string, dataColIdx int, highlightLogic map[int]int) bool {
+	if qualifierColIdx, needsCheck := highlightLogic[dataColIdx]; needsCheck {
+		if qualifierColIdx < len(excelRow) {
+			if strings.ToUpper(strings.TrimSpace(excelRow[qualifierColIdx])) == "FALSE" {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func listDirs(basePath string) (map[string]struct{}, error) {
